@@ -1,0 +1,51 @@
+# Profile: UR10e arm on the telescopic lift. This file is the single source of truth for joint
+# names, order, limits and frames; configs and code read it instead of repeating joint lists.
+robot:
+  name: mobile_manipulator
+  xacro_args:
+    arm: ur10e
+    lift_stroke: 1.5
+    lift_stages: 2
+    lift_max_velocity: 0.2
+    tcp_xyz: "0 0 0.165"
+
+frames:
+  world_base: base_footprint
+  base: base_link
+  lift_base: lift_base_link
+  lift_output: lift_output_link
+  arm_base: arm_base_link
+  flange: arm_flange_link
+  tool_mount: tool_mount_link
+  tcp: tcp_link
+
+# Actuated joints in kinematic order (7-DOF planning chain: lift first, then the arm).
+joints:
+  lift: lift_joint
+  arm:
+    - arm_shoulder_pan_joint
+    - arm_shoulder_lift_joint
+    - arm_elbow_joint
+    - arm_wrist_1_joint
+    - arm_wrist_2_joint
+    - arm_wrist_3_joint
+  # Followed through <mimic>, never commanded.
+  mimic:
+    - lift_stage_1_joint
+    - lift_stage_2_joint
+
+lift:
+  type: telescopic
+  stroke_m: 1.5
+  max_velocity_mps: 0.2
+  stages: 2
+
+# A safe, collision-free configuration with the arm folded (lift, then arm joints in order).
+home:
+  lift_joint: 0.4
+  arm_shoulder_pan_joint: 0.0
+  arm_shoulder_lift_joint: -1.5708
+  arm_elbow_joint: 1.5708
+  arm_wrist_1_joint: -1.5708
+  arm_wrist_2_joint: -1.5708
+  arm_wrist_3_joint: 0.0

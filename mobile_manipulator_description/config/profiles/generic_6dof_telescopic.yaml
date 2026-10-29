@@ -1,0 +1,39 @@
+# Profile: the built-in generic 6-DOF reference arm on the telescopic lift (no external deps).
+robot:
+  name: mobile_manipulator
+  xacro_args:
+    arm: generic_6dof
+    lift_stroke: 1.5
+    lift_stages: 2
+    lift_max_velocity: 0.2
+    tcp_xyz: "0 0 0.165"
+
+frames:
+  world_base: base_footprint
+  base: base_link
+  lift_base: lift_base_link
+  lift_output: lift_output_link
+  arm_base: arm_base_link
+  flange: arm_flange_link
+  tool_mount: tool_mount_link
+  tcp: tcp_link
+
+joints:
+  lift: lift_joint
+  arm: [arm_joint1, arm_joint2, arm_joint3, arm_joint4, arm_joint5, arm_joint6]
+  mimic: [lift_stage_1_joint, lift_stage_2_joint]
+
+lift:
+  type: telescopic
+  stroke_m: 1.5
+  max_velocity_mps: 0.2
+  stages: 2
+
+home:
+  lift_joint: 0.4
+  arm_joint1: 0.0
+  arm_joint2: -1.5708
+  arm_joint3: 1.5708
+  arm_joint4: -1.5708
+  arm_joint5: -1.5708
+  arm_joint6: 0.0

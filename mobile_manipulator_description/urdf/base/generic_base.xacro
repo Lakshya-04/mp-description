@@ -1,0 +1,41 @@
+<?xml version="1.0"?>
+<!-- Generic mobile base: a box on the ground. Swap for a real base by providing a macro with the
+     same contract: it must define `${prefix}base_footprint` (ground) and `${prefix}base_link`,
+     and a link `${prefix}lift_mount_link` where the lift attaches. -->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+  <xacro:macro name="generic_base" params="prefix:='' length:=0.9 width:=0.6 height:=0.3 ground_clearance:=0.05 mass:=60.0">
+    <link name="${prefix}base_footprint"/>
+
+    <link name="${prefix}base_link">
+      <visual>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry><box size="${length} ${width} ${height}"/></geometry>
+        <material name="base_grey"><color rgba="0.35 0.37 0.4 1"/></material>
+      </visual>
+      <collision>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry><box size="${length} ${width} ${height}"/></geometry>
+      </collision>
+      <inertial>
+        <mass value="${mass}"/>
+        <inertia ixx="${mass * (width * width + height * height) / 12.0}" ixy="0" ixz="0"
+                 iyy="${mass * (length * length + height * height) / 12.0}" iyz="0"
+                 izz="${mass * (length * length + width * width) / 12.0}"/>
+      </inertial>
+    </link>
+
+    <joint name="${prefix}base_footprint_joint" type="fixed">
+      <parent link="${prefix}base_footprint"/>
+      <child link="${prefix}base_link"/>
+      <origin xyz="0 0 ${ground_clearance + height / 2.0}" rpy="0 0 0"/>
+    </joint>
+
+    <!-- Where the lift column attaches: top face of the base, at the origin by default. -->
+    <link name="${prefix}lift_mount_link"/>
+    <joint name="${prefix}lift_mount_joint" type="fixed">
+      <parent link="${prefix}base_link"/>
+      <child link="${prefix}lift_mount_link"/>
+      <origin xyz="0 0 ${height / 2.0}" rpy="0 0 0"/>
+    </joint>
+  </xacro:macro>
+</robot>

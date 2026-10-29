@@ -1,0 +1,45 @@
+<?xml version="1.0"?>
+<!-- Universal Robots adapter. Wraps the official ur_description macro (BSD-3, not bundled here;
+     install ros-<distro>-ur-description) under the arm contract. Supports ur3/ur5/ur10/ur16/
+     ur20/ur30 and the e-series through `ur_type`. -->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+  <xacro:include filename="$(find ur_description)/urdf/ur_macro.xacro"/>
+
+  <!-- ur_description changed the macro between distros: Humble's takes ur_type and
+       generate_ros2_control_tag, Jazzy's and later take neither. Pick by ROS_DISTRO. -->
+  <xacro:macro name="ur_arm" params="parent *origin ur_type prefix:='arm_'">
+    <xacro:if value="${'$(optenv ROS_DISTRO jazzy)' == 'humble'}">
+      <xacro:ur_robot
+        name="${prefix}ur"
+        tf_prefix="${prefix}"
+        parent="${parent}"
+        joint_limits_parameters_file="$(find ur_description)/config/${ur_type}/joint_limits.yaml"
+        kinematics_parameters_file="$(find ur_description)/config/${ur_type}/default_kinematics.yaml"
+        physical_parameters_file="$(find ur_description)/config/${ur_type}/physical_parameters.yaml"
+        visual_parameters_file="$(find ur_description)/config/${ur_type}/visual_parameters.yaml"
+        ur_type="${ur_type}"
+        generate_ros2_control_tag="false">
+        <xacro:insert_block name="origin"/>
+      </xacro:ur_robot>
+    </xacro:if>
+    <xacro:unless value="${'$(optenv ROS_DISTRO jazzy)' == 'humble'}">
+      <xacro:ur_robot
+        name="${prefix}ur"
+        tf_prefix="${prefix}"
+        parent="${parent}"
+        joint_limits_parameters_file="$(find ur_description)/config/${ur_type}/joint_limits.yaml"
+        kinematics_parameters_file="$(find ur_description)/config/${ur_type}/default_kinematics.yaml"
+        physical_parameters_file="$(find ur_description)/config/${ur_type}/physical_parameters.yaml"
+        visual_parameters_file="$(find ur_description)/config/${ur_type}/visual_parameters.yaml">
+        <xacro:insert_block name="origin"/>
+      </xacro:ur_robot>
+    </xacro:unless>
+
+    <!-- Arm contract: the flange. UR's `tool0` is the standard flange frame (z out). -->
+    <link name="${prefix}flange_link"/>
+    <joint name="${prefix}flange_joint" type="fixed">
+      <parent link="${prefix}tool0"/><child link="${prefix}flange_link"/>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+    </joint>
+  </xacro:macro>
+</robot>
