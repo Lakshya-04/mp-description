@@ -1,0 +1,35 @@
+<?xml version="1.0"?>
+<!-- ros2_control hardware block for the lift and the six arm joints. `hardware:=mock` uses
+     mock_components/GenericSystem (position command, position and velocity state) started at
+     the home pose; a real or simulated backend replaces this one block, nothing else changes.
+     The mimic lift stages are not commanded: robot_state_publisher resolves them. -->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+  <xacro:include filename="$(find mobile_manipulator_description)/urdf/arm_joint_names.xacro"/>
+
+  <xacro:macro name="position_joint" params="name initial">
+    <joint name="${name}">
+      <command_interface name="position"/>
+      <state_interface name="position">
+        <param name="initial_value">${initial}</param>
+      </state_interface>
+      <state_interface name="velocity"/>
+    </joint>
+  </xacro:macro>
+
+  <xacro:macro name="mobile_manipulator_ros2_control" params="hardware:=mock">
+    <ros2_control name="mobile_manipulator_system" type="system">
+      <hardware>
+        <xacro:if value="${hardware == 'mock'}">
+          <plugin>mock_components/GenericSystem</plugin>
+        </xacro:if>
+      </hardware>
+      <xacro:position_joint name="lift_joint" initial="${home_lift}"/>
+      <xacro:position_joint name="${arm_joint_names[0]}" initial="${home_arm[0]}"/>
+      <xacro:position_joint name="${arm_joint_names[1]}" initial="${home_arm[1]}"/>
+      <xacro:position_joint name="${arm_joint_names[2]}" initial="${home_arm[2]}"/>
+      <xacro:position_joint name="${arm_joint_names[3]}" initial="${home_arm[3]}"/>
+      <xacro:position_joint name="${arm_joint_names[4]}" initial="${home_arm[4]}"/>
+      <xacro:position_joint name="${arm_joint_names[5]}" initial="${home_arm[5]}"/>
+    </ros2_control>
+  </xacro:macro>
+</robot>

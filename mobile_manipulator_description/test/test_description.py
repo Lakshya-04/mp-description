@@ -113,3 +113,34 @@ def test_unknown_arm_fails_loudly():
     with pytest.raises(Exception) as err:
         _render(arm='not_an_arm')
     assert 'unknown arm_type' in str(err.value)
+
+
+def _generated_acm(arm):
+    import importlib.util
+    spec = importlib.util.spec_from_file_location('generate_acm', PKG / 'scripts' / 'generate_acm.py')
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    robot = URDF.from_xml_string(_render(arm=arm))
+    adjacent = module.adjacent_pairs(robot)
+    lift = module.lift_pairs(robot) - adjacent
+    return adjacent | lift
+
+
+def _committed_acm(name):
+    import re
+    text = (PKG / 'srdf' / name).read_text()
+    return {tuple(sorted(m)) for m in re.findall(r'link1="([^"]+)" link2="([^"]+)"', text)}
+
+
+@pytest.mark.parametrize('arm,file', [('generic_6dof', 'acm_generic_6dof.xacro')] +
+                         ([('ur10e', 'acm_ur.xacro')] if _has_ur_description() else []))
+def test_committed_acm_is_up_to_date(arm, file):
+    assert _generated_acm(arm) == _committed_acm(file), (
+        f'srdf/{file} is stale: run scripts/generate_acm.py --arm {arm} --out srdf/{file}')
+
+
+def test_srdf_includes_the_generated_matrix():
+    srdf = xacro.process_file(str(PKG / 'srdf' / 'mobile_manipulator.srdf.xacro'),
+                              mappings={'arm': 'generic_6dof'}).toxml()
+    assert 'lift_stage_2_link' in srdf and 'Adjacent' in srdf
+    assert 'group name="lift_arm"' in srdf

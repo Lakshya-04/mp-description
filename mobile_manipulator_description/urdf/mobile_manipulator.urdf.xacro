@@ -23,6 +23,8 @@
   <xacro:arg name="arm_mount_rpy" default="0 0 0"/>
   <xacro:arg name="tcp_xyz" default="0 0 0.165"/>
   <xacro:arg name="tcp_rpy" default="0 0 0"/>
+  <!-- "none" (description only) or "mock" (adds the ros2_control block with mock hardware). -->
+  <xacro:arg name="hardware" default="none"/>
 
   <xacro:include filename="$(find mobile_manipulator_description)/urdf/base/generic_base.xacro"/>
   <xacro:include filename="$(find mobile_manipulator_description)/urdf/lift/telescopic_lift.xacro"/>
@@ -48,5 +50,10 @@
   <xacro:generic_tool parent="arm_flange_link" tcp_xyz="$(arg tcp_xyz)" tcp_rpy="$(arg tcp_rpy)">
     <origin xyz="0 0 0" rpy="0 0 0"/>
   </xacro:generic_tool>
+
+  <xacro:unless value="${'$(arg hardware)' == 'none'}">
+    <xacro:include filename="$(find mobile_manipulator_description)/urdf/mobile_manipulator.ros2_control.xacro"/>
+    <xacro:mobile_manipulator_ros2_control hardware="$(arg hardware)"/>
+  </xacro:unless>
 
 </robot>

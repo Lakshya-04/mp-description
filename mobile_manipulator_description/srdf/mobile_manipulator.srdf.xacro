@@ -1,9 +1,9 @@
 <?xml version="1.0"?>
 <!-- Planning groups use chains, so they stay valid for any arm / lift that follows the contracts
-     (no joint names to keep in sync). Adjacent-link collision exclusions inside the arm are
-     arm-specific: generate the full allowed-collision matrix per arm (MoveIt Setup Assistant or
-     a script) and include it from the profile's own SRDF. -->
+     (no joint names to keep in sync). -->
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="mobile_manipulator">
+  <xacro:arg name="arm" default="ur10e"/>
+  <xacro:include filename="$(find mobile_manipulator_description)/urdf/arm_joint_names.xacro"/>
   <!-- Arm only (6-DOF): used for in-band work with the lift locked. -->
   <group name="arm">
     <chain base_link="arm_base_link" tip_link="tcp_link"/>
@@ -19,17 +19,26 @@
     <link name="tcp_link"/>
   </group>
 
+  <group_state name="home" group="lift_arm">
+    <joint name="lift_joint" value="${home_lift}"/>
+    <joint name="${arm_joint_names[0]}" value="${home_arm[0]}"/>
+    <joint name="${arm_joint_names[1]}" value="${home_arm[1]}"/>
+    <joint name="${arm_joint_names[2]}" value="${home_arm[2]}"/>
+    <joint name="${arm_joint_names[3]}" value="${home_arm[3]}"/>
+    <joint name="${arm_joint_names[4]}" value="${home_arm[4]}"/>
+    <joint name="${arm_joint_names[5]}" value="${home_arm[5]}"/>
+  </group_state>
+
   <end_effector name="tool" parent_link="tool_mount_link" group="tool" parent_group="arm"/>
 
 
-  <!-- Structural exclusions that hold for every lift / base. -->
-  <disable_collisions link1="base_link" link2="lift_base_link" reason="Adjacent"/>
-  <disable_collisions link1="base_link" link2="lift_carriage_link" reason="Never"/>
-  <disable_collisions link1="lift_base_link" link2="lift_carriage_link" reason="Adjacent"/>
-  <disable_collisions link1="lift_base_link" link2="lift_stage_1_link" reason="Adjacent"/>
-  <disable_collisions link1="lift_stage_1_link" link2="lift_stage_2_link" reason="Adjacent"/>
-  <disable_collisions link1="lift_stage_2_link" link2="lift_carriage_link" reason="Adjacent"/>
-  <disable_collisions link1="lift_stage_1_link" link2="lift_carriage_link" reason="Never"/>
-  <disable_collisions link1="lift_carriage_link" link2="tool_mount_link" reason="Never"/>
-  <disable_collisions link1="tool_mount_link" link2="arm_wrist_3_link" reason="Adjacent"/>
+  <!-- Allowed-collision matrix: structural pairs (adjacent links, the lift's overlapping parts),
+       generated from the URDF per arm family by scripts/generate_acm.py. Regenerate after
+       changing the lift, base or an arm; a test checks these files are up to date. -->
+  <xacro:if value="${'$(arg arm)'.startswith('ur')}">
+    <xacro:include filename="$(find mobile_manipulator_description)/srdf/acm_ur.xacro"/>
+  </xacro:if>
+  <xacro:unless value="${'$(arg arm)'.startswith('ur')}">
+    <xacro:include filename="$(find mobile_manipulator_description)/srdf/acm_generic_6dof.xacro"/>
+  </xacro:unless>
 </robot>

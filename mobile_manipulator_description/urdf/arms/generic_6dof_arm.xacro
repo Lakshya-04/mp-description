@@ -1,6 +1,8 @@
 <?xml version="1.0"?>
 <!-- Reference 6-DOF arm with UR-like proportions and axis pattern (z, y, y, y, z, y) built from
-     primitives. Needs no external package, so tests and CI can run anywhere. It also documents
+     primitives. Joint limits are +-pi on purpose: a 4*pi range gives every pose several
+     full-turn equivalents and a numerical IK solver (KDL) happily returns a far one for a tiny
+     move. Real arms with +-2*pi joints need a solver that prefers the seed (pick_ik, TRAC-IK). Needs no external package, so tests and CI can run anywhere. It also documents
      the arm contract (see arms/arm.xacro). -->
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro">
   <xacro:macro name="gen_link" params="name length radius xyz:='0 0 0' rpy:='0 0 0'">
@@ -32,14 +34,14 @@
     <joint name="${prefix}joint1" type="revolute">
       <parent link="${prefix}base_link"/><child link="${prefix}shoulder_link"/>
       <origin xyz="0 0 0" rpy="0 0 0"/><axis xyz="0 0 1"/>
-      <limit lower="${-2*pi}" upper="${2*pi}" effort="330" velocity="2.09"/>
+      <limit lower="${-pi}" upper="${pi}" effort="330" velocity="2.09"/>
     </joint>
 
     <xacro:gen_link name="${prefix}upper_arm_link" length="0.612" radius="0.055" xyz="0 0.12 0.306"/>
     <joint name="${prefix}joint2" type="revolute">
       <parent link="${prefix}shoulder_link"/><child link="${prefix}upper_arm_link"/>
       <origin xyz="0 0 0.18" rpy="0 0 0"/><axis xyz="0 1 0"/>
-      <limit lower="${-2*pi}" upper="${2*pi}" effort="330" velocity="2.09"/>
+      <limit lower="${-pi}" upper="${pi}" effort="330" velocity="2.09"/>
     </joint>
 
     <xacro:gen_link name="${prefix}forearm_link" length="0.572" radius="0.045" xyz="0 0 0.286"/>
@@ -53,21 +55,21 @@
     <joint name="${prefix}joint4" type="revolute">
       <parent link="${prefix}forearm_link"/><child link="${prefix}wrist_1_link"/>
       <origin xyz="0 0 0.572" rpy="0 0 0"/><axis xyz="0 1 0"/>
-      <limit lower="${-2*pi}" upper="${2*pi}" effort="54" velocity="3.14"/>
+      <limit lower="${-pi}" upper="${pi}" effort="54" velocity="3.14"/>
     </joint>
 
     <xacro:gen_link name="${prefix}wrist_2_link" length="0.12" radius="0.04" xyz="0 0 0.06"/>
     <joint name="${prefix}joint5" type="revolute">
       <parent link="${prefix}wrist_1_link"/><child link="${prefix}wrist_2_link"/>
       <origin xyz="0 0.12 0" rpy="0 0 0"/><axis xyz="0 0 1"/>
-      <limit lower="${-2*pi}" upper="${2*pi}" effort="54" velocity="3.14"/>
+      <limit lower="${-pi}" upper="${pi}" effort="54" velocity="3.14"/>
     </joint>
 
     <xacro:gen_link name="${prefix}wrist_3_link" length="0.06" radius="0.035" xyz="0 0.03 0"/>
     <joint name="${prefix}joint6" type="revolute">
       <parent link="${prefix}wrist_2_link"/><child link="${prefix}wrist_3_link"/>
       <origin xyz="0 0 0.12" rpy="0 0 0"/><axis xyz="0 1 0"/>
-      <limit lower="${-2*pi}" upper="${2*pi}" effort="54" velocity="3.14"/>
+      <limit lower="${-pi}" upper="${pi}" effort="54" velocity="3.14"/>
     </joint>
 
     <!-- Arm contract: the flange, z pointing out of the last link. -->

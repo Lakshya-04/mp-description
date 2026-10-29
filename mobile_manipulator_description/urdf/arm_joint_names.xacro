@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+<!-- Defines `arm_joint_names` (the six actuated arm joints in kinematic order) and `home_arm`
+     for the selected arm, so the SRDF and the ros2_control block never repeat joint lists.
+     Add a branch when you add an arm (see arms/arm.xacro). Requires the `arm` xacro arg. -->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+  <xacro:property name="arm_joint_names" value="${['arm_shoulder_pan_joint', 'arm_shoulder_lift_joint', 'arm_elbow_joint', 'arm_wrist_1_joint', 'arm_wrist_2_joint', 'arm_wrist_3_joint'] if '$(arg arm)'.startswith('ur') else ['arm_joint1', 'arm_joint2', 'arm_joint3', 'arm_joint4', 'arm_joint5', 'arm_joint6']}"/>
+  <!-- Folded, collision-free home pose (arm joints in the order above) and lift height. -->
+  <xacro:property name="home_arm" value="${[0.0, -1.5708, 1.5708, -1.5708, -1.5708, 0.0]}"/>
+  <xacro:property name="home_lift" value="0.4"/>
+</robot>
