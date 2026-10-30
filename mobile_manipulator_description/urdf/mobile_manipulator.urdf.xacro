@@ -18,6 +18,8 @@
   <xacro:arg name="lift_stroke" default="1.5"/>
   <xacro:arg name="lift_stages" default="2"/>
   <xacro:arg name="lift_max_velocity" default="0.2"/>
+  <!-- Empty = prismatic lift. A number (m) pins the lift at that extension: an arm-only robot. -->
+  <xacro:arg name="lift_fixed_height" default=""/>
   <xacro:arg name="lift_mount_xyz" default="0 0 0"/>
   <xacro:arg name="arm_mount_xyz" default="0 0 0.02"/>
   <xacro:arg name="arm_mount_rpy" default="0 0 0"/>
@@ -39,6 +41,7 @@
 
   <xacro:telescopic_lift parent="lift_mount_link"
     stroke="$(arg lift_stroke)" stages="$(arg lift_stages)" max_velocity="$(arg lift_max_velocity)"
+    fixed_height="$(arg lift_fixed_height)"
     arm_mount_xyz="$(arg arm_mount_xyz)" arm_mount_rpy="$(arg arm_mount_rpy)">
     <origin xyz="$(arg lift_mount_xyz)" rpy="0 0 0"/>
   </xacro:telescopic_lift>

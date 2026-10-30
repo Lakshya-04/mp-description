@@ -11,7 +11,7 @@
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro">
 
   <!-- One telescoping stage link + its mimic joint. `index` is 1-based, `of` is the stage count. -->
-  <xacro:macro name="lift_stage" params="prefix index of stroke parent_link tube_radius tube_length">
+  <xacro:macro name="lift_stage" params="prefix index of stroke parent_link tube_radius tube_length fixed_height:=''">
     <link name="${prefix}lift_stage_${index}_link">
       <visual>
         <origin xyz="0 0 ${tube_length / 2.0}" rpy="0 0 0"/>
@@ -24,17 +24,26 @@
       </collision>
       <inertial><mass value="2.0"/><inertia ixx="0.1" ixy="0" ixz="0" iyy="0.1" iyz="0" izz="0.01"/></inertial>
     </link>
-    <joint name="${prefix}lift_stage_${index}_joint" type="prismatic">
-      <parent link="${parent_link}"/>
-      <child link="${prefix}lift_stage_${index}_link"/>
-      <origin xyz="0 0 0" rpy="0 0 0"/>
-      <axis xyz="0 0 1"/>
-      <limit lower="0" upper="${stroke / of}" effort="1000" velocity="1.0"/>
-      <mimic joint="${prefix}lift_joint" multiplier="${1.0 / of}" offset="0"/>
-    </joint>
+    <xacro:if value="${fixed_height == ''}">
+      <joint name="${prefix}lift_stage_${index}_joint" type="prismatic">
+        <parent link="${parent_link}"/>
+        <child link="${prefix}lift_stage_${index}_link"/>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <axis xyz="0 0 1"/>
+        <limit lower="0" upper="${stroke / of}" effort="1000" velocity="1.0"/>
+        <mimic joint="${prefix}lift_joint" multiplier="${1.0 / of}" offset="0"/>
+      </joint>
+    </xacro:if>
+    <xacro:unless value="${fixed_height == ''}">
+      <joint name="${prefix}lift_stage_${index}_joint" type="fixed">
+        <parent link="${parent_link}"/>
+        <child link="${prefix}lift_stage_${index}_link"/>
+        <origin xyz="0 0 ${float(fixed_height) / of}" rpy="0 0 0"/>
+      </joint>
+    </xacro:unless>
   </xacro:macro>
 
-  <xacro:macro name="telescopic_lift" params="parent *origin prefix:='' stroke:=1.5 stages:=2 max_velocity:=0.2 max_effort:=2000.0 column_height:=0.8 column_width:=0.18 arm_mount_xyz:='0 0 0.02' arm_mount_rpy:='0 0 0'">
+  <xacro:macro name="telescopic_lift" params="parent *origin prefix:='' stroke:=1.5 stages:=2 max_velocity:=0.2 max_effort:=2000.0 column_height:=0.8 column_width:=0.18 arm_mount_xyz:='0 0 0.02' arm_mount_rpy:='0 0 0' fixed_height:=''">
 
     <xacro:property name="n_stages" value="${int(stages)}"/>
     <xacro:property name="tube_h" value="${column_height}"/>
@@ -72,26 +81,37 @@
       </collision>
       <inertial><mass value="3.0"/><inertia ixx="0.05" ixy="0" ixz="0" iyy="0.05" iyz="0" izz="0.05"/></inertial>
     </link>
-    <joint name="${prefix}lift_joint" type="prismatic">
-      <parent link="${prefix}lift_base_link"/>
-      <child link="${prefix}lift_carriage_link"/>
-      <origin xyz="0 0 ${column_height}" rpy="0 0 0"/>
-      <axis xyz="0 0 1"/>
-      <limit lower="0" upper="${stroke}" effort="${max_effort}" velocity="${max_velocity}"/>
-    </joint>
+    <xacro:if value="${fixed_height == ''}">
+      <joint name="${prefix}lift_joint" type="prismatic">
+        <parent link="${prefix}lift_base_link"/>
+        <child link="${prefix}lift_carriage_link"/>
+        <origin xyz="0 0 ${column_height}" rpy="0 0 0"/>
+        <axis xyz="0 0 1"/>
+        <limit lower="0" upper="${stroke}" effort="${max_effort}" velocity="${max_velocity}"/>
+      </joint>
+    </xacro:if>
+    <!-- `fixed_height` pins the lift (and its stages) at that extension: an arm-only robot, e.g. for
+         a 6-DOF VAMP model while the lift is parked. -->
+    <xacro:unless value="${fixed_height == ''}">
+      <joint name="${prefix}lift_joint" type="fixed">
+        <parent link="${prefix}lift_base_link"/>
+        <child link="${prefix}lift_carriage_link"/>
+        <origin xyz="0 0 ${column_height + float(fixed_height)}" rpy="0 0 0"/>
+      </joint>
+    </xacro:unless>
 
     <!-- Optional telescoping stages that follow the master joint (visual / collision only). -->
     <xacro:if value="${n_stages >= 1}">
       <xacro:lift_stage prefix="${prefix}" index="1" of="${n_stages}" stroke="${stroke}"
-        parent_link="${prefix}lift_base_link" tube_radius="${column_width * 0.4}" tube_length="${column_height}"/>
+        parent_link="${prefix}lift_base_link" tube_radius="${column_width * 0.4}" tube_length="${column_height}" fixed_height="${fixed_height}"/>
     </xacro:if>
     <xacro:if value="${n_stages >= 2}">
       <xacro:lift_stage prefix="${prefix}" index="2" of="${n_stages}" stroke="${stroke}"
-        parent_link="${prefix}lift_stage_1_link" tube_radius="${column_width * 0.32}" tube_length="${column_height}"/>
+        parent_link="${prefix}lift_stage_1_link" tube_radius="${column_width * 0.32}" tube_length="${column_height}" fixed_height="${fixed_height}"/>
     </xacro:if>
     <xacro:if value="${n_stages >= 3}">
       <xacro:lift_stage prefix="${prefix}" index="3" of="${n_stages}" stroke="${stroke}"
-        parent_link="${prefix}lift_stage_2_link" tube_radius="${column_width * 0.25}" tube_length="${column_height}"/>
+        parent_link="${prefix}lift_stage_2_link" tube_radius="${column_width * 0.25}" tube_length="${column_height}" fixed_height="${fixed_height}"/>
     </xacro:if>
 
     <!-- Where the arm attaches. -->
