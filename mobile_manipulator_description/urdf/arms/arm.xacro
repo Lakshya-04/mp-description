@@ -1,17 +1,26 @@
 <?xml version="1.0"?>
-<!-- Arm selector. Any 6-DOF arm plugs in by providing a macro that follows this contract:
+<!-- Arm selector. Any N-DOF arm plugs in by providing a macro that follows this contract:
        params   parent *origin prefix:='arm_'
        links    `${prefix}base_link`   fixed to `parent` at *origin (arm base, z up)
                 `${prefix}flange_link` the tool flange, z pointing out of the last link
-       joints   exactly six actuated revolute joints between the two, in kinematic order.
-     Add a new arm by (1) writing arms/<name>.xacro with that macro and (2) adding one branch
-     below. Nothing else in the description depends on which arm is selected. -->
+       joints   N actuated revolute joints between the two, in kinematic order (N is whatever the
+                arm has: 6 for UR and the generic arm, 7 for the Panda-like arm). The profile
+                (config/profiles/<name>.yaml, joints.arm) lists their names, so N is stated
+                once there; the SRDF, ros2_control block and tests follow it.
+     Add a new arm by (1) writing arms/<name>.xacro with that macro, (2) adding one branch
+     below and the include in mobile_manipulator.urdf.xacro, and (3) adding a profile. See
+     docs/robot_description.md. -->
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro">
   <xacro:macro name="arm" params="arm_type parent *origin prefix:='arm_'">
     <xacro:if value="${arm_type == 'generic_6dof'}">
       <xacro:generic_6dof_arm parent="${parent}" prefix="${prefix}">
         <xacro:insert_block name="origin"/>
       </xacro:generic_6dof_arm>
+    </xacro:if>
+    <xacro:if value="${arm_type == 'panda'}">
+      <xacro:panda_arm parent="${parent}" prefix="${prefix}">
+        <xacro:insert_block name="origin"/>
+      </xacro:panda_arm>
     </xacro:if>
     <xacro:if value="${arm_type.startswith('ur')}">
       <xacro:ur_arm parent="${parent}" prefix="${prefix}" ur_type="${arm_type}">
@@ -20,7 +29,7 @@
     </xacro:if>
     <!-- Fail loudly instead of rendering a robot with no arm. The dict lookup raises a KeyError
          whose message names the bad value. -->
-    <xacro:unless value="${arm_type == 'generic_6dof' or arm_type.startswith('ur')}">
+    <xacro:unless value="${arm_type in ('generic_6dof', 'panda') or arm_type.startswith('ur')}">
       <xacro:if value="${dict()['unknown arm_type: ' + arm_type + ' (add a branch in arms/arm.xacro)']}"/>
     </xacro:unless>
   </xacro:macro>

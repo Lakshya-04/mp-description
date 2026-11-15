@@ -3,42 +3,69 @@
      (no joint names to keep in sync). -->
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="mobile_manipulator">
   <xacro:arg name="arm" default="ur10e"/>
+  <xacro:arg name="profile" default=""/>
+  <xacro:arg name="lift" default="telescopic"/>
+  <xacro:arg name="lift_fixed_height" default=""/>
+  <xacro:arg name="lift_stages" default="2"/>
   <xacro:include filename="$(find mobile_manipulator_description)/urdf/arm_joint_names.xacro"/>
-  <!-- Arm only (6-DOF): used for in-band work with the lift locked. -->
-  <group name="arm">
+  <!-- Arm only (N-DOF): used for in-band work with the lift locked. -->
+  <group name="${group_arm}">
     <chain base_link="arm_base_link" tip_link="tcp_link"/>
   </group>
 
-  <!-- Lift + arm (7-DOF): whole-body planning, lift as the first joint. -->
-  <group name="lift_arm">
+  <!-- Lift + arm (1 + N DOF): whole-body planning, lift as the first joint. With lift:=none / fixed
+       the lift joint is fixed, so this chain has the same joints as `arm`. -->
+  <group name="${group_whole_body}">
     <chain base_link="base_link" tip_link="tcp_link"/>
   </group>
 
-  <group name="tool">
+  <group name="${group_tool}">
     <link name="tool_mount_link"/>
     <link name="tcp_link"/>
   </group>
 
-  <group_state name="home" group="lift_arm">
-    <joint name="lift_joint" value="${home_lift}"/>
-    <joint name="${arm_joint_names[0]}" value="${home_arm[0]}"/>
-    <joint name="${arm_joint_names[1]}" value="${home_arm[1]}"/>
-    <joint name="${arm_joint_names[2]}" value="${home_arm[2]}"/>
-    <joint name="${arm_joint_names[3]}" value="${home_arm[3]}"/>
-    <joint name="${arm_joint_names[4]}" value="${home_arm[4]}"/>
-    <joint name="${arm_joint_names[5]}" value="${home_arm[5]}"/>
+  <group_state name="home" group="${group_whole_body}">
+    <xacro:if value="${lift_actuated}">
+      <joint name="${lift_joint_name}" value="${home_lift}"/>
+    </xacro:if>
+    <!-- One entry per arm joint of the profile (xacro has no loop; up to 12 joints). -->
+    <xacro:if value="${arm_dof > 0}"><joint name="${arm_joint_names[0]}" value="${home_arm[0]}"/></xacro:if>
+    <xacro:if value="${arm_dof > 1}"><joint name="${arm_joint_names[1]}" value="${home_arm[1]}"/></xacro:if>
+    <xacro:if value="${arm_dof > 2}"><joint name="${arm_joint_names[2]}" value="${home_arm[2]}"/></xacro:if>
+    <xacro:if value="${arm_dof > 3}"><joint name="${arm_joint_names[3]}" value="${home_arm[3]}"/></xacro:if>
+    <xacro:if value="${arm_dof > 4}"><joint name="${arm_joint_names[4]}" value="${home_arm[4]}"/></xacro:if>
+    <xacro:if value="${arm_dof > 5}"><joint name="${arm_joint_names[5]}" value="${home_arm[5]}"/></xacro:if>
+    <xacro:if value="${arm_dof > 6}"><joint name="${arm_joint_names[6]}" value="${home_arm[6]}"/></xacro:if>
+    <xacro:if value="${arm_dof > 7}"><joint name="${arm_joint_names[7]}" value="${home_arm[7]}"/></xacro:if>
+    <xacro:if value="${arm_dof > 8}"><joint name="${arm_joint_names[8]}" value="${home_arm[8]}"/></xacro:if>
+    <xacro:if value="${arm_dof > 9}"><joint name="${arm_joint_names[9]}" value="${home_arm[9]}"/></xacro:if>
+    <xacro:if value="${arm_dof > 10}"><joint name="${arm_joint_names[10]}" value="${home_arm[10]}"/></xacro:if>
+    <xacro:if value="${arm_dof > 11}"><joint name="${arm_joint_names[11]}" value="${home_arm[11]}"/></xacro:if>
   </group_state>
 
-  <end_effector name="tool" parent_link="tool_mount_link" group="tool" parent_group="arm"/>
+  <end_effector name="tool" parent_link="tool_mount_link" group="${group_tool}" parent_group="${group_arm}"/>
 
 
   <!-- Allowed-collision matrix: structural pairs (adjacent links, the lift's overlapping parts),
        generated from the URDF per arm family by scripts/generate_acm.py. Regenerate after
        changing the lift, base or an arm; a test checks these files are up to date. -->
-  <xacro:if value="${'$(arg arm)'.startswith('ur')}">
-    <xacro:include filename="$(find mobile_manipulator_description)/srdf/acm_ur.xacro"/>
+  <!-- telescopic and fixed share the column's links; scissor and none have their own matrix files
+       (acm_<family>_<lift>.xacro). A pinned scissor renders as a column, so it uses the column's. -->
+  <!-- A moving scissor's links are all lift_*, they overlap by design, and their number follows
+       lift_stages, so those pairs are emitted here instead of coming from the committed file. -->
+  <xacro:macro name="acm_lift_col" params="i j n">
+    <disable_collisions link1="${lift_links[i]}" link2="${lift_links[j]}" reason="Never"/>
+    <xacro:if value="${j + 1 &lt; n}"><xacro:acm_lift_col i="${i}" j="${j + 1}" n="${n}"/></xacro:if>
+  </xacro:macro>
+  <xacro:macro name="acm_lift_row" params="i n">
+    <xacro:acm_lift_col i="${i}" j="${i + 1}" n="${n}"/>
+    <xacro:if value="${i + 2 &lt; n}"><xacro:acm_lift_row i="${i + 1}" n="${n}"/></xacro:if>
+  </xacro:macro>
+  <xacro:if value="${'$(arg lift)' == 'scissor' and '$(arg lift_fixed_height)' == ''}">
+    <xacro:property name="lift_links" value="${['lift_base_link', 'lift_carriage_link'] + ['lift_scissor_%d_%s_link' % (k, s) for k in range(int('$(arg lift_stages)')) for s in 'ab']}"/>
+    <xacro:acm_lift_row i="0" n="${len(lift_links)}"/>
   </xacro:if>
-  <xacro:unless value="${'$(arg arm)'.startswith('ur')}">
-    <xacro:include filename="$(find mobile_manipulator_description)/srdf/acm_generic_6dof.xacro"/>
-  </xacro:unless>
+  <xacro:property name="acm_family" value="${'ur' if '$(arg arm)'.startswith('ur') else '$(arg arm)'}"/>
+  <xacro:property name="acm_suffix" value="${'_' + '$(arg lift)' if ('$(arg lift)' == 'none' or ('$(arg lift)' == 'scissor' and '$(arg lift_fixed_height)' == '')) else ''}"/>
+  <xacro:include filename="$(find mobile_manipulator_description)/srdf/acm_${acm_family}${acm_suffix}.xacro"/>
 </robot>

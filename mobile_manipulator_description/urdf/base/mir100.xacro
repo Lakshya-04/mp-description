@@ -1,0 +1,26 @@
+<?xml version="1.0"?>
+<!-- MiR100-class differential base (two drive wheels, four casters).
+     Primitive model from nominal published dimensions; check every default against your unit
+     (see docs/robot_description.md) and override through the macro parameters. Wheels are fixed
+     links: the base is driven by its vehicle controller, not by the planner. -->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+  <xacro:include filename="$(find mobile_manipulator_description)/urdf/base/wheeled_base_common.xacro"/>
+  <xacro:macro name="mir100_base" params="prefix:='' length:=0.89 width:=0.58 height:=0.302 ground_clearance:=0.05 mass:=67.0 rgba:='0.75 0.1 0.1 1' wheel_radius:=0.1 wheel_width:=0.04 track:=0.404 wheel_collision:=false casters:=quad caster_radius:=0.05 caster_x:=0.33 caster_y:=0.2 mount_x:=0.0 mount_y:=0.0">
+    <xacro:two_wheel_base prefix="${prefix}"
+    length="${length}"
+    width="${width}"
+    height="${height}"
+    ground_clearance="${ground_clearance}"
+    mass="${mass}"
+    rgba="${rgba}"
+    wheel_radius="${wheel_radius}"
+    wheel_width="${wheel_width}"
+    track="${track}"
+    wheel_collision="${wheel_collision}"
+    casters="${casters}"
+    caster_radius="${caster_radius}"
+    caster_x="${caster_x}"
+    caster_y="${caster_y}"
+    mount_x="${mount_x}" mount_y="${mount_y}"/>
+  </xacro:macro>
+</robot>

@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>mobile_manipulator_profile</name>
+  <version>0.1.0</version>
+  <description>
+    Header-only C++ reader of the robot profile YAML in mobile_manipulator_description: planning
+    group names, lift and arm joint lists (so the arm DOF), frames and the home pose.
+  </description>
+  <maintainer email="100lakshyaagarwal@gmail.com">Lakshya Agarwal</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <depend>ament_index_cpp</depend>
+  <depend>yaml-cpp</depend>
+  <!-- Profiles are looked up in its share directory at run time. -->
+  <exec_depend>mobile_manipulator_description</exec_depend>
+  <test_depend>ament_cmake_gtest</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

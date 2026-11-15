@@ -1,0 +1,151 @@
+<?xml version="1.0"?>
+<!-- Shared building blocks for the wheeled-base macros in this directory. Everything is a
+     primitive (boxes and cylinders) built from published dimensions; no vendor mesh is used.
+
+     Wheels, steering modules and casters are modelled as FIXED links: the base is driven by the
+     vehicle controller (cmd_vel), not by the arm planner, so no joint inside a base is actuated.
+     This keeps the planning chain (lift + six arm joints) identical for every base.
+
+     Frame convention (the base contract): `base_footprint` is on the ground below the body
+     centre, x forward, z up; `base_link` is the body box centre; `lift_mount_link` is on the top
+     face at the body centre plus (mount_x, mount_y). -->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <!-- Body box + the three contract links. `length`/`width`/`height` describe the box; the box
+       bottom is `ground_clearance` above the ground. body_x shifts the box along x relative to
+       base_footprint (the wheel axles stay where the macro that calls this puts them). -->
+  <xacro:macro name="wheeled_base_body"
+               params="prefix length width height ground_clearance mass rgba:='0.35 0.37 0.4 1' body_x:=0.0 mount_x:=0.0 mount_y:=0.0">
+    <link name="${prefix}base_footprint"/>
+
+    <link name="${prefix}base_link">
+      <visual>
+        <origin xyz="${body_x} 0 0" rpy="0 0 0"/>
+        <geometry><box size="${length} ${width} ${height}"/></geometry>
+        <material name="${prefix}base_body_material"><color rgba="${rgba}"/></material>
+      </visual>
+      <collision>
+        <origin xyz="${body_x} 0 0" rpy="0 0 0"/>
+        <geometry><box size="${length} ${width} ${height}"/></geometry>
+      </collision>
+      <inertial>
+        <origin xyz="${body_x} 0 0" rpy="0 0 0"/>
+        <mass value="${mass}"/>
+        <inertia ixx="${mass * (width * width + height * height) / 12.0}" ixy="0" ixz="0"
+                 iyy="${mass * (length * length + height * height) / 12.0}" iyz="0"
+                 izz="${mass * (length * length + width * width) / 12.0}"/>
+      </inertial>
+    </link>
+
+    <joint name="${prefix}base_footprint_joint" type="fixed">
+      <parent link="${prefix}base_footprint"/>
+      <child link="${prefix}base_link"/>
+      <origin xyz="0 0 ${ground_clearance + height / 2.0}" rpy="0 0 0"/>
+    </joint>
+
+    <link name="${prefix}lift_mount_link"/>
+    <joint name="${prefix}lift_mount_joint" type="fixed">
+      <parent link="${prefix}base_link"/>
+      <child link="${prefix}lift_mount_link"/>
+      <origin xyz="${body_x + mount_x} ${mount_y} ${height / 2.0}" rpy="0 0 0"/>
+    </joint>
+  </xacro:macro>
+
+  <!-- One wheel: a cylinder whose axis is the base y axis, resting on the ground. (x, y) is the
+       wheel centre in base_footprint; z_body is the base_link height above the ground.
+       `collision:=false` for wheels that sit inside the body envelope (the body box already
+       covers them, so overlapping collision shapes would only add false self-collisions). -->
+  <xacro:macro name="base_wheel"
+               params="prefix name x y radius width z_body mass:=1.0 collision:=true rgba:='0.08 0.08 0.08 1'">
+    <link name="${prefix}${name}_wheel_link">
+      <visual>
+        <origin xyz="0 0 0" rpy="${pi / 2} 0 0"/>
+        <geometry><cylinder radius="${radius}" length="${width}"/></geometry>
+        <material name="${prefix}base_wheel_material"><color rgba="${rgba}"/></material>
+      </visual>
+      <xacro:if value="${collision}">
+        <collision>
+          <origin xyz="0 0 0" rpy="${pi / 2} 0 0"/>
+          <geometry><cylinder radius="${radius}" length="${width}"/></geometry>
+        </collision>
+      </xacro:if>
+      <inertial>
+        <mass value="${mass}"/>
+        <inertia ixx="${mass * (3 * radius * radius + width * width) / 12.0}" ixy="0" ixz="0"
+                 iyy="${mass * radius * radius / 2.0}" iyz="0"
+                 izz="${mass * (3 * radius * radius + width * width) / 12.0}"/>
+      </inertial>
+    </link>
+    <joint name="${prefix}${name}_wheel_joint" type="fixed">
+      <parent link="${prefix}base_link"/>
+      <child link="${prefix}${name}_wheel_link"/>
+      <origin xyz="${x} ${y} ${radius - z_body}" rpy="0 0 0"/>
+    </joint>
+  </xacro:macro>
+
+  <!-- Passive caster, visual only (a sphere): it carries no load in the model and would only
+       overlap the body box in collision checking. -->
+  <xacro:macro name="base_caster" params="prefix name x y radius z_body">
+    <link name="${prefix}${name}_caster_link">
+      <visual>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry><sphere radius="${radius}"/></geometry>
+        <material name="${prefix}base_caster_material"><color rgba="0.5 0.5 0.5 1"/></material>
+      </visual>
+      <inertial>
+        <mass value="0.2"/>
+        <inertia ixx="${0.2 * 0.4 * radius * radius}" ixy="0" ixz="0"
+                 iyy="${0.2 * 0.4 * radius * radius}" iyz="0" izz="${0.2 * 0.4 * radius * radius}"/>
+      </inertial>
+    </link>
+    <joint name="${prefix}${name}_caster_joint" type="fixed">
+      <parent link="${prefix}base_link"/>
+      <child link="${prefix}${name}_caster_link"/>
+      <origin xyz="${x} ${y} ${radius - z_body}" rpy="0 0 0"/>
+    </joint>
+  </xacro:macro>
+
+  <!-- Four wheels at (+-wheelbase/2 + wheel_x, +-track/2): ranger_mini, scouts, husky, mpo_500. -->
+  <xacro:macro name="four_wheel_base"
+               params="prefix length width height ground_clearance mass wheel_radius wheel_width track wheelbase wheel_collision:=true rgba:='0.35 0.37 0.4 1' body_x:=0.0 wheel_x:=0.0 mount_x:=0.0 mount_y:=0.0">
+    <xacro:wheeled_base_body prefix="${prefix}" length="${length}" width="${width}" height="${height}"
+        ground_clearance="${ground_clearance}" mass="${mass}" rgba="${rgba}" body_x="${body_x}"
+        mount_x="${mount_x}" mount_y="${mount_y}"/>
+    <xacro:property name="zb" value="${ground_clearance + height / 2.0}"/>
+    <xacro:base_wheel prefix="${prefix}" name="fl" x="${wheel_x + wheelbase / 2.0}" y="${track / 2.0}"
+        radius="${wheel_radius}" width="${wheel_width}" z_body="${zb}" collision="${wheel_collision}"/>
+    <xacro:base_wheel prefix="${prefix}" name="fr" x="${wheel_x + wheelbase / 2.0}" y="${-track / 2.0}"
+        radius="${wheel_radius}" width="${wheel_width}" z_body="${zb}" collision="${wheel_collision}"/>
+    <xacro:base_wheel prefix="${prefix}" name="rl" x="${wheel_x - wheelbase / 2.0}" y="${track / 2.0}"
+        radius="${wheel_radius}" width="${wheel_width}" z_body="${zb}" collision="${wheel_collision}"/>
+    <xacro:base_wheel prefix="${prefix}" name="rr" x="${wheel_x - wheelbase / 2.0}" y="${-track / 2.0}"
+        radius="${wheel_radius}" width="${wheel_width}" z_body="${zb}" collision="${wheel_collision}"/>
+  </xacro:macro>
+
+  <!-- Two drive wheels on one axle at x = wheel_x, plus passive casters: `casters` is 'rear'
+       (one at x = -caster_x), 'both' (front and rear, at y = 0) or 'quad' (four, at
+       (+-caster_x, +-caster_y)): turtlebot3, mir100. -->
+  <xacro:macro name="two_wheel_base"
+               params="prefix length width height ground_clearance mass wheel_radius wheel_width track wheel_collision:=true rgba:='0.35 0.37 0.4 1' body_x:=0.0 wheel_x:=0.0 casters:=none caster_radius:=0.0 caster_x:=0.0 caster_y:=0.0 mount_x:=0.0 mount_y:=0.0">
+    <xacro:wheeled_base_body prefix="${prefix}" length="${length}" width="${width}" height="${height}"
+        ground_clearance="${ground_clearance}" mass="${mass}" rgba="${rgba}" body_x="${body_x}"
+        mount_x="${mount_x}" mount_y="${mount_y}"/>
+    <xacro:property name="zb" value="${ground_clearance + height / 2.0}"/>
+    <xacro:base_wheel prefix="${prefix}" name="l" x="${wheel_x}" y="${track / 2.0}"
+        radius="${wheel_radius}" width="${wheel_width}" z_body="${zb}" collision="${wheel_collision}"/>
+    <xacro:base_wheel prefix="${prefix}" name="r" x="${wheel_x}" y="${-track / 2.0}"
+        radius="${wheel_radius}" width="${wheel_width}" z_body="${zb}" collision="${wheel_collision}"/>
+    <xacro:if value="${casters in ('rear', 'both')}">
+      <xacro:base_caster prefix="${prefix}" name="rear" x="${-caster_x}" y="0" radius="${caster_radius}" z_body="${zb}"/>
+    </xacro:if>
+    <xacro:if value="${casters == 'both'}">
+      <xacro:base_caster prefix="${prefix}" name="front" x="${caster_x}" y="0" radius="${caster_radius}" z_body="${zb}"/>
+    </xacro:if>
+    <xacro:if value="${casters == 'quad'}">
+      <xacro:base_caster prefix="${prefix}" name="fl" x="${caster_x}" y="${caster_y}" radius="${caster_radius}" z_body="${zb}"/>
+      <xacro:base_caster prefix="${prefix}" name="fr" x="${caster_x}" y="${-caster_y}" radius="${caster_radius}" z_body="${zb}"/>
+      <xacro:base_caster prefix="${prefix}" name="rl" x="${-caster_x}" y="${caster_y}" radius="${caster_radius}" z_body="${zb}"/>
+      <xacro:base_caster prefix="${prefix}" name="rr" x="${-caster_x}" y="${-caster_y}" radius="${caster_radius}" z_body="${zb}"/>
+    </xacro:if>
+  </xacro:macro>
+</robot>

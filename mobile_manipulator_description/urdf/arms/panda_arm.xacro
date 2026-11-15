@@ -1,0 +1,84 @@
+<?xml version="1.0"?>
+<!-- 7-DOF reference arm with Franka Panda kinematics, built from primitives (no vendor meshes).
+     Joint frames, offsets and limits are the published Panda values (Craig / modified DH:
+     d1 0.333, d3 0.316, d5 0.384, a4 0.0825, a5 -0.0825, a7 0.088, flange 0.107; position limits
+     +-2.8973 except q2 +-1.7628, q4 [-3.0718, -0.0698], q6 [-0.0175, 3.7525]; velocity
+     2.175 rad/s for joints 1-4 and 2.61 for 5-7; effort 87 / 12 N m). Links are cylinders along
+     the segments, so collision geometry is an approximation of the real arm, good enough for
+     planning tests. It exists to prove the arm contract for N = 7 (see arms/arm.xacro).
+     Joints are named ${prefix}joint1 .. joint7, like the generic 6-DOF arm. -->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+  <xacro:macro name="panda_link" params="name length radius xyz rpy:='0 0 0' mass:=2.0">
+    <link name="${name}">
+      <visual>
+        <origin xyz="${xyz}" rpy="${rpy}"/>
+        <geometry><cylinder radius="${radius}" length="${length}"/></geometry>
+        <material name="panda_white"><color rgba="0.92 0.92 0.92 1"/></material>
+      </visual>
+      <collision>
+        <origin xyz="${xyz}" rpy="${rpy}"/>
+        <geometry><cylinder radius="${radius}" length="${length}"/></geometry>
+      </collision>
+      <inertial><mass value="${mass}"/><inertia ixx="0.02" ixy="0" ixz="0" iyy="0.02" iyz="0" izz="0.01"/></inertial>
+    </link>
+  </xacro:macro>
+
+  <xacro:macro name="panda_joint" params="prefix n parent child xyz rpy lower upper velocity effort">
+    <joint name="${prefix}joint${n}" type="revolute">
+      <parent link="${parent}"/><child link="${child}"/>
+      <origin xyz="${xyz}" rpy="${rpy}"/><axis xyz="0 0 1"/>
+      <limit lower="${lower}" upper="${upper}" effort="${effort}" velocity="${velocity}"/>
+    </joint>
+  </xacro:macro>
+
+  <xacro:macro name="panda_arm" params="parent *origin prefix:='arm_'">
+    <link name="${prefix}base_link"/>
+    <joint name="${prefix}base_joint" type="fixed">
+      <parent link="${parent}"/>
+      <child link="${prefix}base_link"/>
+      <xacro:insert_block name="origin"/>
+    </joint>
+
+    <!-- link1 .. link7 sit at their joint frames; each cylinder covers the segment from the previous
+         joint origin to its own (checked by test_panda_collision_cylinders_lie_on_the_kinematic_chain). -->
+    <xacro:panda_link name="${prefix}link1" length="0.333" radius="0.06" xyz="0 0 -0.1665"/>
+    <xacro:panda_joint prefix="${prefix}" n="1" parent="${prefix}base_link" child="${prefix}link1"
+      xyz="0 0 0.333" rpy="0 0 0" lower="-2.8973" upper="2.8973" velocity="2.175" effort="87"/>
+
+    <xacro:panda_link name="${prefix}link2" length="0.12" radius="0.06" xyz="0 0 0"/>
+    <xacro:panda_joint prefix="${prefix}" n="2" parent="${prefix}link1" child="${prefix}link2"
+      xyz="0 0 0" rpy="${-pi/2} 0 0" lower="-1.7628" upper="1.7628" velocity="2.175" effort="87"/>
+
+    <!-- upper arm: from the shoulder (link2 origin) to this frame, 0.316 back along -z -->
+    <xacro:panda_link name="${prefix}link3" length="0.316" radius="0.055" xyz="0 0 -0.158"/>
+    <xacro:panda_joint prefix="${prefix}" n="3" parent="${prefix}link2" child="${prefix}link3"
+      xyz="0 -0.316 0" rpy="${pi/2} 0 0" lower="-2.8973" upper="2.8973" velocity="2.175" effort="87"/>
+
+    <!-- elbow offset: from the link3 origin (0.0825 back along -x) to this frame -->
+    <xacro:panda_link name="${prefix}link4" length="0.0825" radius="0.05" xyz="-0.04125 0 0" rpy="0 ${pi/2} 0"/>
+    <xacro:panda_joint prefix="${prefix}" n="4" parent="${prefix}link3" child="${prefix}link4"
+      xyz="0.0825 0 0" rpy="${pi/2} 0 0" lower="-3.0718" upper="-0.0698" velocity="2.175" effort="87"/>
+
+    <!-- forearm: from the elbow (link4 origin = (0.0825, 0, -0.384) in this frame) to this frame -->
+    <xacro:panda_link name="${prefix}link5" length="${sqrt(0.0825*0.0825 + 0.384*0.384)}" radius="0.045"
+      xyz="0.04125 0 -0.192" rpy="0 ${atan2(0.0825, -0.384)} 0"/>
+    <xacro:panda_joint prefix="${prefix}" n="5" parent="${prefix}link4" child="${prefix}link5"
+      xyz="-0.0825 0.384 0" rpy="${-pi/2} 0 0" lower="-2.8973" upper="2.8973" velocity="2.61" effort="12"/>
+
+    <!-- wrist offset: from this frame to link7's origin, 0.088 along +x -->
+    <xacro:panda_link name="${prefix}link6" length="0.088" radius="0.05" xyz="0.044 0 0" rpy="0 ${pi/2} 0"/>
+    <xacro:panda_joint prefix="${prefix}" n="6" parent="${prefix}link5" child="${prefix}link6"
+      xyz="0 0 0" rpy="${pi/2} 0 0" lower="-0.0175" upper="3.7525" velocity="2.61" effort="12"/>
+
+    <xacro:panda_link name="${prefix}link7" length="0.107" radius="0.04" xyz="0.0 0 0.0535"/>
+    <xacro:panda_joint prefix="${prefix}" n="7" parent="${prefix}link6" child="${prefix}link7"
+      xyz="0.088 0 0" rpy="${pi/2} 0 0" lower="-2.8973" upper="2.8973" velocity="2.61" effort="12"/>
+
+    <!-- Arm contract: the flange, z pointing out of the last link. -->
+    <link name="${prefix}flange_link"/>
+    <joint name="${prefix}flange_joint" type="fixed">
+      <parent link="${prefix}link7"/><child link="${prefix}flange_link"/>
+      <origin xyz="0 0 0.107" rpy="0 0 0"/>
+    </joint>
+  </xacro:macro>
+</robot>

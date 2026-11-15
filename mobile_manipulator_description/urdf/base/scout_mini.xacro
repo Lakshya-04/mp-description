@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<!-- AgileX Scout Mini: four-wheel skid steer.
+     Primitive model from nominal published dimensions; check every default against your unit
+     (see docs/robot_description.md) and override through the macro parameters. Wheels are fixed
+     links: the base is driven by its vehicle controller, not by the planner. -->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+  <xacro:include filename="$(find mobile_manipulator_description)/urdf/base/wheeled_base_common.xacro"/>
+  <xacro:macro name="scout_mini_base" params="prefix:='' length:=0.612 width:=0.38 height:=0.128 ground_clearance:=0.107 mass:=23.0 rgba:='0.8 0.45 0.1 1' wheel_radius:=0.0875 wheel_width:=0.07 track:=0.4535 wheelbase:=0.463 mount_x:=0.0 mount_y:=0.0">
+    <xacro:four_wheel_base prefix="${prefix}"
+    length="${length}"
+    width="${width}"
+    height="${height}"
+    ground_clearance="${ground_clearance}"
+    mass="${mass}"
+    rgba="${rgba}"
+    wheel_radius="${wheel_radius}"
+    wheel_width="${wheel_width}"
+    track="${track}"
+    wheelbase="${wheelbase}"
+    mount_x="${mount_x}" mount_y="${mount_y}"/>
+  </xacro:macro>
+</robot>

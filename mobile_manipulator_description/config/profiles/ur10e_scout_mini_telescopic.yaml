@@ -1,0 +1,75 @@
+# Profile: ur10e arm on the telescopic lift, mounted on AgileX Scout Mini: four-wheel skid steer.
+robot:
+  name: mobile_manipulator
+  xacro_args:
+    arm: ur10e
+    base: scout_mini
+    lift_stroke: 1.5
+    lift_stages: 2
+    lift_max_velocity: 0.2
+    tcp_xyz: "0 0 0.165"
+
+frames:
+  world_base: base_footprint
+  base: base_link
+  lift_base: lift_base_link
+  lift_output: lift_output_link
+  arm_base: arm_base_link
+  flange: arm_flange_link
+  tool_mount: tool_mount_link
+  tcp: tcp_link
+
+# Actuated joints in kinematic order (7-DOF planning chain: lift first, then the arm).
+joints:
+  lift: lift_joint
+  arm:
+    - arm_shoulder_pan_joint
+    - arm_shoulder_lift_joint
+    - arm_elbow_joint
+    - arm_wrist_1_joint
+    - arm_wrist_2_joint
+    - arm_wrist_3_joint
+  # Followed through <mimic>, never commanded.
+  mimic:
+    - lift_stage_1_joint
+    - lift_stage_2_joint
+
+lift:
+  type: telescopic
+  stroke_m: 1.5
+  max_velocity_mps: 0.2
+  stages: 2
+
+# A safe, collision-free configuration with the arm folded (lift, then arm joints in order).
+home:
+  lift_joint: 0.4
+  arm_shoulder_pan_joint: 0.0
+  arm_shoulder_lift_joint: -1.5708
+  arm_elbow_joint: 1.5708
+  arm_wrist_1_joint: -1.5708
+  arm_wrist_2_joint: -1.5708
+  arm_wrist_3_joint: 0.0
+
+# Mobile base. Numbers are nominal (published spec sheets); check them against your unit.
+base:
+  name: scout_mini
+  description: "AgileX Scout Mini: four-wheel skid steer"
+  drive_type: skid          # omni | diff | skid | 4ws
+  can_strafe: false
+  # Rectangle in base_footprint (x forward, y left, metres) enclosing body, wheels and casters.
+  footprint:
+    - [-0.3190, -0.2618]
+    - [0.3190, -0.2618]
+    - [0.3190, 0.2618]
+    - [-0.3190, 0.2618]
+  wheel_radius_m: 0.0875
+  track_m: 0.4535
+  wheelbase_m: 0.463
+  max_linear_velocity_mps: 1.7
+  max_angular_velocity_radps: 2.0
+  max_linear_acceleration_mps2: 1.0
+  max_angular_acceleration_radps2: 2.0
+  arm_mount_xy: [0.0, 0.0]      # arm base in base_footprint (x, y); stationing places the footprint by it
+  lift_mount_height_m: 0.235     # lift_mount_link above base_footprint
+  ground_clearance_m: 0.107
+  mass_kg: 23.0

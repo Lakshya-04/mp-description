@@ -2,6 +2,7 @@
 
   ros2 launch mobile_manipulator_description display.launch.py arm:=ur10e
   ros2 launch mobile_manipulator_description display.launch.py arm:=generic_6dof
+  ros2 launch mobile_manipulator_description display.launch.py arm:=ur10e base:=husky
 """
 import os
 
@@ -12,12 +13,13 @@ from launch_ros.actions import Node
 import xacro
 
 
+def _mappings(context):
+    return {k: context.perform_substitution(LaunchConfiguration(k)) for k in ('arm', 'base', 'lift_stroke')}
+
+
 def _launch(context):
     pkg = get_package_share_directory('mobile_manipulator_description')
-    args = {
-        k: context.perform_substitution(v)
-        for k, v in (('arm', LaunchConfiguration('arm')), ('lift_stroke', LaunchConfiguration('lift_stroke')))
-    }
+    args = _mappings(context)
     doc = xacro.process_file(os.path.join(pkg, 'urdf', 'mobile_manipulator.urdf.xacro'), mappings=args)
     robot_description = doc.toxml()
     return [
@@ -34,6 +36,7 @@ from launch.substitutions import LaunchConfiguration  # noqa: E402
 def generate_launch_description():
     return LaunchDescription([
         DeclareLaunchArgument('arm', default_value='ur10e'),
+        DeclareLaunchArgument('base', default_value='generic_base'),
         DeclareLaunchArgument('lift_stroke', default_value='1.5'),
         OpaqueFunction(function=_launch),
     ])

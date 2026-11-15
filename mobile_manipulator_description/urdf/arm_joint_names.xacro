@@ -1,10 +1,30 @@
 <?xml version="1.0"?>
-<!-- Defines `arm_joint_names` (the six actuated arm joints in kinematic order) and `home_arm`
-     for the selected arm, so the SRDF and the ros2_control block never repeat joint lists.
-     Add a branch when you add an arm (see arms/arm.xacro). Requires the `arm` xacro arg. -->
+<!-- Reads the robot profile (config/profiles/<profile>.yaml) and defines, for the SRDF and the
+     ros2_control block, so neither repeats joint lists:
+       arm_joint_names  actuated arm joints in kinematic order (any count)
+       arm_dof          their number
+       home_arm         home positions of those joints, same order
+       home_lift        home lift extension
+       group_arm / group_whole_body / group_tool   planning-group names
+     The profile is the `profile` xacro arg; when empty it follows the `arm` arg
+     (ur* -> ur10e_telescopic, otherwise <arm>_telescopic). -->
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro">
-  <xacro:property name="arm_joint_names" value="${['arm_shoulder_pan_joint', 'arm_shoulder_lift_joint', 'arm_elbow_joint', 'arm_wrist_1_joint', 'arm_wrist_2_joint', 'arm_wrist_3_joint'] if '$(arg arm)'.startswith('ur') else ['arm_joint1', 'arm_joint2', 'arm_joint3', 'arm_joint4', 'arm_joint5', 'arm_joint6']}"/>
-  <!-- Folded, collision-free home pose (arm joints in the order above) and lift height. -->
-  <xacro:property name="home_arm" value="${[0.0, -1.5708, 1.5708, -1.5708, -1.5708, 0.0]}"/>
-  <xacro:property name="home_lift" value="0.4"/>
+  <xacro:arg name="arm" default="ur10e"/>
+  <xacro:arg name="profile" default=""/>
+  <xacro:property name="profile_name" value="${'$(arg profile)' if '$(arg profile)' else ('ur10e_telescopic' if '$(arg arm)'.startswith('ur') else '$(arg arm)_telescopic')}"/>
+  <!-- `profile` is a name in config/profiles, or the path of a profile file (contains / or ends in .yaml) -->
+  <xacro:property name="profile_file" value="${profile_name if ('/' in profile_name or profile_name.endswith('.yaml')) else '$(find mobile_manipulator_description)/config/profiles/' + profile_name + '.yaml'}"/>
+  <xacro:property name="profile" value="${load_yaml(profile_file)}"/>
+  <xacro:property name="arm_joint_names" value="${profile['joints']['arm']}"/>
+  <xacro:property name="arm_dof" value="${len(profile['joints']['arm'])}"/>
+  <xacro:property name="home_arm" value="${[profile['home'][j] for j in profile['joints']['arm']]}"/>
+  <xacro:property name="lift_joint_name" value="${profile['joints']['lift'] or 'lift_joint'}"/>
+  <xacro:property name="home_lift" value="${profile['home'].get(lift_joint_name, 0.0)}"/>
+  <xacro:property name="group_arm" value="${(profile['groups']['arm'] if 'groups' in profile and 'arm' in profile['groups'] else 'arm')}"/>
+  <xacro:property name="group_whole_body" value="${(profile['groups']['whole_body'] if 'groups' in profile and 'whole_body' in profile['groups'] else 'lift_arm')}"/>
+  <xacro:property name="group_tool" value="${(profile['groups']['tool'] if 'groups' in profile and 'tool' in profile['groups'] else 'tool')}"/>
+  <!-- True when the lift joint moves (telescopic / scissor and not pinned). With lift:=none, lift:=fixed
+       or a lift_fixed_height the lift contract links still exist but lift_joint is a fixed joint, so it
+       is not commanded and has no home value. Requires the `lift` and `lift_fixed_height` xacro args. -->
+  <xacro:property name="lift_actuated" value="${'$(arg lift)' in ('telescopic', 'scissor') and '$(arg lift_fixed_height)' == ''}"/>
 </robot>

@@ -1,0 +1,63 @@
+<?xml version="1.0"?>
+<!-- Lift selector. Every variant provides the same contract (see telescopic_lift.xacro):
+       link  `lift_base_link`    fixed to the parent
+       joint `lift_joint`        prismatic +z, lower 0, upper = stroke  (a fixed joint when pinned)
+       link  `lift_output_link`  where the arm attaches
+     so nothing downstream depends on which one is selected.
+
+       telescopic  prismatic master + 0..3 mimic stages (lift_stage_*)
+       scissor     prismatic master + visual scissor linkage on mimic joints (lift_scissor_*)
+       fixed       the telescopic column pinned at `fixed_height` m of extension (lift_joint fixed)
+       none        no lift: the arm sits on a short pedestal at `mount_height` (lift_joint fixed)
+
+     `mount_height` = height of `lift_output_link` above `lift_base_link` when the lift is retracted
+     (empty = the variant's default). A chain / column lift is not a separate macro: model it as
+     `telescopic` with stages:=0 (see docs/robot_description.md).
+
+     An empty `fixed_height` means the lift moves (telescopic, scissor); a number pins whichever
+     variant it is given to, so `telescopic` + fixed_height behaves as `fixed`.
+     `max_acceleration` is not representable in URDF; it is carried by the profile only (the MoveIt
+     joint_limits.yaml is edited by hand for now). -->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+  <xacro:macro name="lift" params="lift_type parent *origin stroke:=1.5 stages:=2 max_velocity:=0.2 max_acceleration:=0.5 mount_height:='' fixed_height:='' arm_mount_xyz:='0 0 0.02' arm_mount_rpy:='0 0 0'">
+    <xacro:property name="arm_z" value="${float(arm_mount_xyz.split()[2])}"/>
+    <xacro:property name="kind" value="${lift_type}"/>
+
+    <xacro:if value="${kind == 'telescopic' or kind == 'fixed'}">
+      <xacro:telescopic_lift parent="${parent}" stroke="${stroke}" stages="${stages}" max_velocity="${max_velocity}"
+        column_height="${0.8 if mount_height == '' else float(mount_height) - arm_z}"
+        fixed_height="${('0.4' if fixed_height == '' else fixed_height) if kind == 'fixed' else fixed_height}"
+        arm_mount_xyz="${arm_mount_xyz}" arm_mount_rpy="${arm_mount_rpy}">
+        <xacro:insert_block name="origin"/>
+      </xacro:telescopic_lift>
+    </xacro:if>
+    <xacro:if value="${kind == 'none'}">
+      <xacro:telescopic_lift parent="${parent}" stroke="0.0" stages="0" max_velocity="0.0"
+        column_height="${0.3 if mount_height == '' else float(mount_height) - arm_z}" fixed_height="0.0"
+        arm_mount_xyz="${arm_mount_xyz}" arm_mount_rpy="${arm_mount_rpy}">
+        <xacro:insert_block name="origin"/>
+      </xacro:telescopic_lift>
+    </xacro:if>
+    <xacro:if value="${kind == 'scissor'}">
+      <!-- A pinned scissor is rendered as the pinned column (same output height). -->
+      <xacro:if value="${fixed_height != ''}">
+        <xacro:telescopic_lift parent="${parent}" stroke="${stroke}" stages="0" max_velocity="${max_velocity}"
+          column_height="${0.25 if mount_height == '' else float(mount_height) - arm_z}" fixed_height="${fixed_height}"
+          arm_mount_xyz="${arm_mount_xyz}" arm_mount_rpy="${arm_mount_rpy}">
+          <xacro:insert_block name="origin"/>
+        </xacro:telescopic_lift>
+      </xacro:if>
+      <xacro:if value="${fixed_height == ''}">
+        <xacro:scissor_lift parent="${parent}" stroke="${stroke}" stages="${stages}" max_velocity="${max_velocity}"
+          mount_height="${0.25 if mount_height == '' else float(mount_height) - arm_z}"
+          arm_mount_xyz="${arm_mount_xyz}" arm_mount_rpy="${arm_mount_rpy}">
+          <xacro:insert_block name="origin"/>
+        </xacro:scissor_lift>
+      </xacro:if>
+    </xacro:if>
+    <!-- Fail loudly instead of rendering a robot with no lift. -->
+    <xacro:unless value="${kind in ('telescopic', 'fixed', 'none', 'scissor')}">
+      <xacro:if value="${dict()['unknown lift: ' + kind + ' (telescopic | fixed | none | scissor)']}"/>
+    </xacro:unless>
+  </xacro:macro>
+</robot>

@@ -1,17 +1,32 @@
 <?xml version="1.0"?>
-<!-- ros2_control hardware block for the lift and the six arm joints.
+<!-- ros2_control hardware block for the lift and the arm joints (N, from the profile).
        hardware:=mock       mock_components/GenericSystem (position command, position and velocity
                             state) started at the home pose.
        hardware:=jtac_mock  the same joints with position AND velocity command interfaces (what the
                             compliant JtacController drives) plus a force/torque sensor from
                             ft_bridge_hardware in injection mode, so a wall contact can be scripted
                             without a real sensor. The sensor's name is `ft_sensor`.
+       hardware:=mujoco     sim_mujoco/MujocoSystemInterface: the same joints as jtac_mock (position and
+                            velocity command) stepped by MuJoCo, plus the tool force/torque as the sensor
+                            `ft_sensor` in the same system block. The MJCF path comes from the
+                            environment variable SIM_MUJOCO_MJCF (see docs/sim_mujoco.md). A second
+                            block, `ft_conditioned_bridge`, exports the sensor `ft_sensor_tcp`: the
+                            conditioned contact wrench (ft_conditioner node, tool frame), read by
+                            ft_bridge_hardware from /ft_conditioner/wrench_conditioned; all zero until
+                            the conditioner runs. JTAC reads it when the launch starts the conditioner.
+       hardware:=gazebo     gz_ros2_control/GazeboSimSystem with the jtac_mock joint interfaces plus
+                            effort state, the F/T sensor `ft_sensor` as a gz force_torque sensor on
+                            tool_mount_joint, and the base pinned to the world (package sim_gazebo,
+                            docs/sim_gazebo.md).
      A real or simulated backend replaces this one block, nothing else changes.
      The mimic lift stages are not commanded: robot_state_publisher resolves them. -->
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro">
   <xacro:include filename="$(find mobile_manipulator_description)/urdf/arm_joint_names.xacro"/>
+  <xacro:if value="${'$(arg hardware)' == 'gazebo'}">
+    <xacro:include filename="$(find sim_gazebo)/urdf/gazebo_tags.xacro"/>
+  </xacro:if>
 
-  <xacro:macro name="position_joint" params="name initial velocity_command:=false">
+  <xacro:macro name="position_joint" params="name initial velocity_command:=false effort_state:=false">
     <joint name="${name}">
       <command_interface name="position"/>
       <xacro:if value="${velocity_command}"><command_interface name="velocity"/></xacro:if>
@@ -19,25 +34,93 @@
         <param name="initial_value">${initial}</param>
       </state_interface>
       <state_interface name="velocity"/>
+      <xacro:if value="${effort_state}"><state_interface name="effort"/></xacro:if>
     </joint>
   </xacro:macro>
 
   <xacro:macro name="mobile_manipulator_ros2_control" params="hardware:=mock">
-    <xacro:property name="vel_cmd" value="${hardware == 'jtac_mock'}"/>
+    <xacro:property name="vel_cmd" value="${hardware in ('jtac_mock', 'mujoco', 'gazebo')}"/>
+    <!-- Fail loudly instead of emitting a <hardware> block with no plugin; a backend adds itself to the
+         tuple here and below. The dict lookup raises a KeyError that names the bad value. -->
+    <xacro:unless value="${hardware in ('mock', 'jtac_mock', 'mujoco', 'gazebo')}">
+      <xacro:if value="${dict()['unknown hardware: ' + hardware + ' (add a branch in mobile_manipulator.ros2_control.xacro)']}"/>
+    </xacro:unless>
+    <xacro:property name="eff_state" value="${hardware == 'gazebo'}"/>
     <ros2_control name="mobile_manipulator_system" type="system">
       <hardware>
         <xacro:if value="${hardware in ('mock', 'jtac_mock')}">
           <plugin>mock_components/GenericSystem</plugin>
         </xacro:if>
+        <xacro:if value="${hardware == 'mujoco'}">
+          <plugin>sim_mujoco/MujocoSystemInterface</plugin>
+          <param name="mjcf">$(optenv SIM_MUJOCO_MJCF)</param>
+        </xacro:if>
+        <xacro:if value="${hardware == 'gazebo'}"><plugin>gz_ros2_control/GazeboSimSystem</plugin></xacro:if>
       </hardware>
-      <xacro:position_joint name="lift_joint" initial="${home_lift}" velocity_command="${vel_cmd}"/>
-      <xacro:position_joint name="${arm_joint_names[0]}" initial="${home_arm[0]}" velocity_command="${vel_cmd}"/>
-      <xacro:position_joint name="${arm_joint_names[1]}" initial="${home_arm[1]}" velocity_command="${vel_cmd}"/>
-      <xacro:position_joint name="${arm_joint_names[2]}" initial="${home_arm[2]}" velocity_command="${vel_cmd}"/>
-      <xacro:position_joint name="${arm_joint_names[3]}" initial="${home_arm[3]}" velocity_command="${vel_cmd}"/>
-      <xacro:position_joint name="${arm_joint_names[4]}" initial="${home_arm[4]}" velocity_command="${vel_cmd}"/>
-      <xacro:position_joint name="${arm_joint_names[5]}" initial="${home_arm[5]}" velocity_command="${vel_cmd}"/>
+      <xacro:if value="${lift_actuated}">
+        <xacro:position_joint name="${lift_joint_name}" initial="${home_lift}" velocity_command="${vel_cmd}" effort_state="${eff_state}"/>
+      </xacro:if>
+      <!-- One entry per arm joint of the profile (xacro has no loop; up to 12 joints). -->
+      <xacro:if value="${arm_dof > 0}"><xacro:position_joint name="${arm_joint_names[0]}" initial="${home_arm[0]}" velocity_command="${vel_cmd}" effort_state="${eff_state}"/></xacro:if>
+      <xacro:if value="${arm_dof > 1}"><xacro:position_joint name="${arm_joint_names[1]}" initial="${home_arm[1]}" velocity_command="${vel_cmd}" effort_state="${eff_state}"/></xacro:if>
+      <xacro:if value="${arm_dof > 2}"><xacro:position_joint name="${arm_joint_names[2]}" initial="${home_arm[2]}" velocity_command="${vel_cmd}" effort_state="${eff_state}"/></xacro:if>
+      <xacro:if value="${arm_dof > 3}"><xacro:position_joint name="${arm_joint_names[3]}" initial="${home_arm[3]}" velocity_command="${vel_cmd}" effort_state="${eff_state}"/></xacro:if>
+      <xacro:if value="${arm_dof > 4}"><xacro:position_joint name="${arm_joint_names[4]}" initial="${home_arm[4]}" velocity_command="${vel_cmd}" effort_state="${eff_state}"/></xacro:if>
+      <xacro:if value="${arm_dof > 5}"><xacro:position_joint name="${arm_joint_names[5]}" initial="${home_arm[5]}" velocity_command="${vel_cmd}" effort_state="${eff_state}"/></xacro:if>
+      <xacro:if value="${arm_dof > 6}"><xacro:position_joint name="${arm_joint_names[6]}" initial="${home_arm[6]}" velocity_command="${vel_cmd}" effort_state="${eff_state}"/></xacro:if>
+      <xacro:if value="${arm_dof > 7}"><xacro:position_joint name="${arm_joint_names[7]}" initial="${home_arm[7]}" velocity_command="${vel_cmd}" effort_state="${eff_state}"/></xacro:if>
+      <xacro:if value="${arm_dof > 8}"><xacro:position_joint name="${arm_joint_names[8]}" initial="${home_arm[8]}" velocity_command="${vel_cmd}" effort_state="${eff_state}"/></xacro:if>
+      <xacro:if value="${arm_dof > 9}"><xacro:position_joint name="${arm_joint_names[9]}" initial="${home_arm[9]}" velocity_command="${vel_cmd}" effort_state="${eff_state}"/></xacro:if>
+      <xacro:if value="${arm_dof > 10}"><xacro:position_joint name="${arm_joint_names[10]}" initial="${home_arm[10]}" velocity_command="${vel_cmd}" effort_state="${eff_state}"/></xacro:if>
+      <xacro:if value="${arm_dof > 11}"><xacro:position_joint name="${arm_joint_names[11]}" initial="${home_arm[11]}" velocity_command="${vel_cmd}" effort_state="${eff_state}"/></xacro:if>
+      <xacro:if value="${hardware in ('mujoco', 'gazebo')}">
+        <sensor name="ft_sensor">
+          <state_interface name="force.x"/>
+          <state_interface name="force.y"/>
+          <state_interface name="force.z"/>
+          <state_interface name="torque.x"/>
+          <state_interface name="torque.y"/>
+          <state_interface name="torque.z"/>
+        </sensor>
+      </xacro:if>
     </ros2_control>
+    <xacro:if value="${hardware == 'gazebo'}"><xacro:sim_gazebo_tags/></xacro:if>
+    <xacro:if value="${hardware == 'mujoco'}">
+      <ros2_control name="ft_conditioned_bridge" type="sensor">
+        <hardware>
+          <plugin>ft_bridge_hardware/FtBridgeHardwareInterface</plugin>
+          <param name="source_topic">/ft_conditioner/wrench_conditioned</param>
+        </hardware>
+        <sensor name="ft_sensor_tcp">
+          <state_interface name="force.x"/>
+          <state_interface name="force.y"/>
+          <state_interface name="force.z"/>
+          <state_interface name="torque.x"/>
+          <state_interface name="torque.y"/>
+          <state_interface name="torque.z"/>
+        </sensor>
+      </ros2_control>
+    </xacro:if>
+    <xacro:if value="${hardware == 'gazebo'}">
+      <!-- The conditioned contact wrench (ft_conditioner output, at the tcp) as the sensor
+           `ft_sensor_tcp`, for JTAC. Not `ft_sensor`: that is the raw gz sensor above. -->
+      <!-- gz_ros2_control only loads its own system base class (a plain sensor plugin is refused),
+           so this is the bridge under that class: ft_bridge_hardware/FtBridgeSimSystem. -->
+      <ros2_control name="ft_conditioned_bridge" type="system">
+        <hardware>
+          <plugin>ft_bridge_hardware/FtBridgeSimSystem</plugin>
+          <param name="source_topic">/ft_conditioner/wrench_conditioned</param>
+        </hardware>
+        <sensor name="ft_sensor_tcp">
+          <state_interface name="force.x"/>
+          <state_interface name="force.y"/>
+          <state_interface name="force.z"/>
+          <state_interface name="torque.x"/>
+          <state_interface name="torque.y"/>
+          <state_interface name="torque.z"/>
+        </sensor>
+      </ros2_control>
+    </xacro:if>
     <xacro:if value="${hardware == 'jtac_mock'}">
       <ros2_control name="ft_sensor_bridge" type="sensor">
         <hardware>

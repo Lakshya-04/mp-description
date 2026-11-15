@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<!-- Clearpath Husky A200: four-wheel skid steer.
+     Primitive model from nominal published dimensions; check every default against your unit
+     (see docs/robot_description.md) and override through the macro parameters. Wheels are fixed
+     links: the base is driven by its vehicle controller, not by the planner. -->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+  <xacro:include filename="$(find mobile_manipulator_description)/urdf/base/wheeled_base_common.xacro"/>
+  <xacro:macro name="husky_base" params="prefix:='' length:=0.99 width:=0.45 height:=0.26 ground_clearance:=0.13 mass:=50.0 rgba:='0.9 0.75 0.1 1' wheel_radius:=0.165 wheel_width:=0.1 track:=0.5708 wheelbase:=0.512 mount_x:=0.0 mount_y:=0.0">
+    <xacro:four_wheel_base prefix="${prefix}"
+    length="${length}"
+    width="${width}"
+    height="${height}"
+    ground_clearance="${ground_clearance}"
+    mass="${mass}"
+    rgba="${rgba}"
+    wheel_radius="${wheel_radius}"
+    wheel_width="${wheel_width}"
+    track="${track}"
+    wheelbase="${wheelbase}"
+    mount_x="${mount_x}" mount_y="${mount_y}"/>
+  </xacro:macro>
+</robot>

@@ -1,0 +1,27 @@
+<?xml version="1.0"?>
+<!-- Base selector. Any mobile base plugs in by providing a macro with this contract:
+       params   prefix:=''
+       links    `${prefix}base_footprint`   on the ground, x forward, z up
+                `${prefix}base_link`        the body
+                `${prefix}lift_mount_link`  where the lift attaches (z up)
+       joints   none that are actuated: wheels and steering are fixed links; the vehicle
+                controller drives the base, the planner only sees lift + arm.
+     Add a base by (1) writing base/<name>.xacro with a `<name>_base` macro and (2) adding it to
+     the table below. Select with `base:=<name>`. -->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+  <xacro:macro name="base" params="base_type prefix:=''">
+    <xacro:if value="${base_type == 'generic_base'}"><xacro:generic_base prefix="${prefix}"/></xacro:if>
+    <xacro:if value="${base_type == 'ranger_mini'}"><xacro:ranger_mini_base prefix="${prefix}"/></xacro:if>
+    <xacro:if value="${base_type == 'scout_mini'}"><xacro:scout_mini_base prefix="${prefix}"/></xacro:if>
+    <xacro:if value="${base_type == 'scout'}"><xacro:scout_base prefix="${prefix}"/></xacro:if>
+    <xacro:if value="${base_type == 'husky'}"><xacro:husky_base prefix="${prefix}"/></xacro:if>
+    <xacro:if value="${base_type == 'mpo_500'}"><xacro:mpo_500_base prefix="${prefix}"/></xacro:if>
+    <xacro:if value="${base_type == 'mir100'}"><xacro:mir100_base prefix="${prefix}"/></xacro:if>
+    <xacro:if value="${base_type == 'turtlebot3_burger'}"><xacro:turtlebot3_burger_base prefix="${prefix}"/></xacro:if>
+    <xacro:if value="${base_type == 'turtlebot3_waffle'}"><xacro:turtlebot3_waffle_base prefix="${prefix}"/></xacro:if>
+    <!-- Fail loudly instead of rendering a robot with no base (the KeyError names the value). -->
+    <xacro:unless value="${base_type in ['generic_base', 'ranger_mini', 'scout_mini', 'scout', 'husky', 'mpo_500', 'mir100', 'turtlebot3_burger', 'turtlebot3_waffle']}">
+      <xacro:if value="${dict()['unknown base_type: ' + base_type + ' (add a branch in base/base.xacro)']}"/>
+    </xacro:unless>
+  </xacro:macro>
+</robot>

@@ -136,6 +136,14 @@ def test_jtac_mock_adds_velocity_commands_and_an_ft_sensor(arm):
         'force.x', 'force.y', 'force.z', 'torque.x', 'torque.y', 'torque.z']
 
 
+@pytest.mark.parametrize('hardware', ['gazebo', 'mujoco', 'isaac', 'typo'])
+def test_unknown_hardware_fails_loudly(hardware):
+    """A backend that is not wired into the ros2_control block must not render a plugin-less one."""
+    with pytest.raises(Exception) as err:
+        _render(arm='generic_6dof', hardware=hardware)
+    assert 'unknown hardware' in str(err.value)
+
+
 def test_lift_velocity_and_stroke_are_parameters():
     robot = URDF.from_xml_string(_render(arm='generic_6dof', lift_stroke=0.9,
                                          lift_max_velocity=0.3))

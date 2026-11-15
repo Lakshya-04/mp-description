@@ -1,0 +1,145 @@
+<?xml version="1.0"?>
+<!-- Scissor lift: one controlled master prismatic joint (`lift_joint`, lower 0, upper `stroke`) that
+     carries the top platform and the arm, and a visual scissor linkage built from box primitives
+     that follows it through <mimic> joints. Only `lift_joint` is commanded.
+
+     Contract (same as telescopic_lift.xacro):
+       link  `${prefix}lift_base_link`    fixed to the parent (the bottom plate)
+       joint `${prefix}lift_joint`        prismatic, axis +z, lower 0, upper `stroke`
+       link  `${prefix}lift_output_link`  the arm attaches here (moves with lift_joint)
+
+     Geometry. `stages` X-levels are stacked between the bottom plate and the top platform. Level k
+     has a centre link that rises linearly with the platform (prismatic mimic, multiplier
+     (k + 0.5) / stages) and two arm links crossing at it, rotated by +theta and -theta about y.
+     A real scissor's arm angle is theta = asin(h / (stages * L)), which is not linear in the
+     height; a <mimic> joint can only be linear, so theta is interpolated between the collapsed and
+     the fully extended angle. The pivots therefore drift from the platform by a few centimetres
+     mid-stroke: the linkage is a visualisation and a collision envelope that is conservative vertically but up to about 2 cm narrower sideways, the platform
+     height itself is exact. Arm length L is chosen so the arms reach 70 degrees at full stroke.
+
+     `mount_height` is the height of the top platform's underside above the bottom plate origin when
+     collapsed (the minimum height). Payload is a property of the real lift, not of the model: record
+     it in the profile (`lift.payload_kg`). -->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <xacro:macro name="scissor_arm" params="prefix name k axis_y length theta_min theta_max stroke max_velocity arm_w arm_t arm_y">
+    <link name="${prefix}lift_scissor_${name}_link">
+      <visual>
+        <origin xyz="0 ${arm_y} 0" rpy="0 0 0"/>
+        <geometry><box size="${length} ${arm_w} ${arm_t}"/></geometry>
+        <material name="lift_silver"><color rgba="0.7 0.72 0.75 1"/></material>
+      </visual>
+      <visual>
+        <origin xyz="0 ${-arm_y} 0" rpy="0 0 0"/>
+        <geometry><box size="${length} ${arm_w} ${arm_t}"/></geometry>
+        <material name="lift_silver"/>
+      </visual>
+      <collision>
+        <origin xyz="0 ${arm_y} 0" rpy="0 0 0"/>
+        <geometry><box size="${length} ${arm_w} ${arm_t}"/></geometry>
+      </collision>
+      <collision>
+        <origin xyz="0 ${-arm_y} 0" rpy="0 0 0"/>
+        <geometry><box size="${length} ${arm_w} ${arm_t}"/></geometry>
+      </collision>
+      <inertial><mass value="1.5"/><inertia ixx="0.05" ixy="0" ixz="0" iyy="0.05" iyz="0" izz="0.05"/></inertial>
+    </link>
+    <joint name="${prefix}lift_scissor_${name}_joint" type="revolute">
+      <parent link="${prefix}lift_scissor_${k}_center_link"/>
+      <child link="${prefix}lift_scissor_${name}_link"/>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <axis xyz="0 ${axis_y} 0"/>
+      <limit lower="0" upper="${theta_max}" effort="1000" velocity="1.0"/>
+      <mimic joint="${prefix}lift_joint" multiplier="${(theta_max - theta_min) / stroke}" offset="${theta_min}"/>
+    </joint>
+  </xacro:macro>
+
+  <!-- Level k (0-based) and, recursively, the levels above it. -->
+  <xacro:macro name="scissor_levels" params="prefix k stages hmin stroke length theta_min theta_max plate_t max_velocity arm_w arm_t arm_y">
+    <xacro:property name="frac" value="${(k + 0.5) / stages}"/>
+    <link name="${prefix}lift_scissor_${k}_center_link"/>
+    <joint name="${prefix}lift_scissor_${k}_center_joint" type="prismatic">
+      <parent link="${prefix}lift_base_link"/>
+      <child link="${prefix}lift_scissor_${k}_center_link"/>
+      <origin xyz="0 0 ${plate_t + frac * (hmin - plate_t)}" rpy="0 0 0"/>
+      <axis xyz="0 0 1"/>
+      <limit lower="0" upper="${frac * stroke}" effort="1000" velocity="${max_velocity}"/>
+      <mimic joint="${prefix}lift_joint" multiplier="${frac}" offset="0"/>
+    </joint>
+    <xacro:scissor_arm prefix="${prefix}" name="${k}_a" k="${k}" axis_y="-1" length="${length}" theta_min="${theta_min}" theta_max="${theta_max}" stroke="${stroke}" max_velocity="${max_velocity}" arm_w="${arm_w}" arm_t="${arm_t}" arm_y="${arm_y}"/>
+    <xacro:scissor_arm prefix="${prefix}" name="${k}_b" k="${k}" axis_y="1" length="${length}" theta_min="${theta_min}" theta_max="${theta_max}" stroke="${stroke}" max_velocity="${max_velocity}" arm_w="${arm_w}" arm_t="${arm_t}" arm_y="${arm_y}"/>
+    <xacro:if value="${k + 1 &lt; stages}">
+      <xacro:scissor_levels prefix="${prefix}" k="${k + 1}" stages="${stages}" hmin="${hmin}" stroke="${stroke}" length="${length}" theta_min="${theta_min}" theta_max="${theta_max}" plate_t="${plate_t}" max_velocity="${max_velocity}" arm_w="${arm_w}" arm_t="${arm_t}" arm_y="${arm_y}"/>
+    </xacro:if>
+  </xacro:macro>
+
+  <xacro:macro name="scissor_lift" params="parent *origin prefix:='' stroke:=1.0 stages:=3 max_velocity:=0.1 max_effort:=3000.0 mount_height:=0.25 platform_size:=0.5 arm_mount_xyz:='0 0 0.02' arm_mount_rpy:='0 0 0'">
+    <xacro:property name="n" value="${int(stages)}"/>
+    <xacro:property name="plate_t" value="0.04"/>
+    <xacro:property name="hmin" value="${float(mount_height)}"/>
+    <!-- Fail loudly (like lift.xacro's unknown-lift check) instead of a ZeroDivisionError or a
+         negative arm angle below the joint limit. -->
+    <xacro:if value="${n &lt; 1}">
+      <xacro:if value="${dict()['scissor lift needs at least 1 stage (lift_stages)']}"/>
+    </xacro:if>
+    <xacro:if value="${hmin &lt; plate_t}">
+      <xacro:if value="${dict()['scissor lift mount height must leave room for the top plate (lift_mount_height minus the arm mount z must be at least 0.04 m)']}"/>
+    </xacro:if>
+    <xacro:property name="stroke_f" value="${float(stroke)}"/>
+    <xacro:property name="theta_max" value="1.2217"/>  <!-- 70 degrees -->
+    <!-- Arm length so that the stack of `n` X-levels spans the full height at theta_max. -->
+    <xacro:property name="length" value="${(hmin + stroke_f - plate_t) / (n * 0.9397)}"/>
+    <xacro:property name="theta_min" value="${asin((hmin - plate_t) / (n * length))}"/>
+
+    <!-- Bottom plate: fixed to the parent. -->
+    <link name="${prefix}lift_base_link">
+      <visual>
+        <origin xyz="0 0 ${plate_t / 2.0}" rpy="0 0 0"/>
+        <geometry><box size="${platform_size} ${platform_size} ${plate_t}"/></geometry>
+        <material name="lift_dark"><color rgba="0.25 0.27 0.3 1"/></material>
+      </visual>
+      <collision>
+        <origin xyz="0 0 ${plate_t / 2.0}" rpy="0 0 0"/>
+        <geometry><box size="${platform_size} ${platform_size} ${plate_t}"/></geometry>
+      </collision>
+      <inertial><mass value="15.0"/><inertia ixx="0.5" ixy="0" ixz="0" iyy="0.5" iyz="0" izz="0.5"/></inertial>
+    </link>
+    <joint name="${prefix}lift_base_joint" type="fixed">
+      <parent link="${parent}"/>
+      <child link="${prefix}lift_base_link"/>
+      <xacro:insert_block name="origin"/>
+    </joint>
+
+    <!-- Top platform: driven by the master joint. -->
+    <link name="${prefix}lift_carriage_link">
+      <visual>
+        <origin xyz="0 0 ${plate_t / 2.0}" rpy="0 0 0"/>
+        <geometry><box size="${platform_size} ${platform_size} ${plate_t}"/></geometry>
+        <material name="lift_plate"><color rgba="0.55 0.57 0.6 1"/></material>
+      </visual>
+      <collision>
+        <origin xyz="0 0 ${plate_t / 2.0}" rpy="0 0 0"/>
+        <geometry><box size="${platform_size} ${platform_size} ${plate_t}"/></geometry>
+      </collision>
+      <inertial><mass value="10.0"/><inertia ixx="0.3" ixy="0" ixz="0" iyy="0.3" iyz="0" izz="0.3"/></inertial>
+    </link>
+    <joint name="${prefix}lift_joint" type="prismatic">
+      <parent link="${prefix}lift_base_link"/>
+      <child link="${prefix}lift_carriage_link"/>
+      <origin xyz="0 0 ${hmin}" rpy="0 0 0"/>
+      <axis xyz="0 0 1"/>
+      <limit lower="0" upper="${stroke_f}" effort="${max_effort}" velocity="${max_velocity}"/>
+    </joint>
+
+    <xacro:scissor_levels prefix="${prefix}" k="0" stages="${n}" hmin="${hmin}" stroke="${stroke_f}"
+      length="${length}" theta_min="${theta_min}" theta_max="${theta_max}" plate_t="${plate_t}"
+      max_velocity="${max_velocity}" arm_w="0.04" arm_t="0.03" arm_y="${platform_size / 2.0 - 0.04}"/>
+
+    <link name="${prefix}lift_output_link"/>
+    <joint name="${prefix}lift_output_joint" type="fixed">
+      <parent link="${prefix}lift_carriage_link"/>
+      <child link="${prefix}lift_output_link"/>
+      <origin xyz="${arm_mount_xyz}" rpy="${arm_mount_rpy}"/>
+    </joint>
+  </xacro:macro>
+</robot>

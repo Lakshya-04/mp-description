@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<!-- TurtleBot3 Waffle: small differential base for CI and demos.
+     Primitive model from nominal published dimensions; check every default against your unit
+     (see docs/robot_description.md) and override through the macro parameters. Wheels are fixed
+     links: the base is driven by its vehicle controller, not by the planner. -->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+  <xacro:include filename="$(find mobile_manipulator_description)/urdf/base/wheeled_base_common.xacro"/>
+  <xacro:macro name="turtlebot3_waffle_base" params="prefix:='' length:=0.281 width:=0.24 height:=0.131 ground_clearance:=0.01 mass:=1.8 rgba:='0.2 0.2 0.2 1' wheel_radius:=0.033 wheel_width:=0.018 track:=0.287 wheel_x:=-0.064 casters:=both caster_radius:=0.01 caster_x:=0.11 mount_x:=0.0 mount_y:=0.0">
+    <xacro:two_wheel_base prefix="${prefix}"
+    length="${length}"
+    width="${width}"
+    height="${height}"
+    ground_clearance="${ground_clearance}"
+    mass="${mass}"
+    rgba="${rgba}"
+    wheel_radius="${wheel_radius}"
+    wheel_width="${wheel_width}"
+    track="${track}"
+    wheel_x="${wheel_x}"
+    casters="${casters}"
+    caster_radius="${caster_radius}"
+    caster_x="${caster_x}"
+    mount_x="${mount_x}" mount_y="${mount_y}"/>
+  </xacro:macro>
+</robot>
