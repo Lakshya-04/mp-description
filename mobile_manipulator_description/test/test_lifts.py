@@ -222,7 +222,7 @@ def test_scissor_srdf_disables_every_lift_pair_for_any_stage_count(stages):
                               mappings={'arm': 'generic_6dof', 'lift': 'scissor', 'lift_stages': str(stages)}).toxml()
     pairs = re.findall(r'link1="([^"]+)" link2="([^"]+)"', srdf)
     disabled = {tuple(sorted(m)) for m in pairs}
-    assert module.lift_pairs(robot) <= disabled
+    assert module.lift_pairs(robot, mounted=False) <= disabled  # the SRDF writes the scissor-internal pairs
     assert len(pairs) == len(disabled), 'duplicate pairs'
 
 
@@ -231,7 +231,7 @@ def test_lift_specific_acm_is_up_to_date(lift):
     module = _acm_module()
     robot = _robot(arm='generic_6dof', lift=lift)
     adjacent = module.adjacent_pairs(robot)
-    generated = adjacent | (module.lift_pairs(robot) - adjacent)
+    generated = adjacent | (module.lift_pairs(robot, mounted=lift != "scissor") - adjacent)
     if lift == 'scissor':  # the SRDF writes the scissor's lift-internal pairs from lift_stages
         generated = {p for p in generated if not all(n.startswith('lift_') for n in p)}
     text = (PKG / 'srdf' / f'acm_generic_6dof_{lift}.xacro').read_text()

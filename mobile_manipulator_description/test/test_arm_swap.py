@@ -124,7 +124,7 @@ def test_panda_acm_is_up_to_date(lift, suffix):
     p = load_profile('panda_telescopic')
     robot = URDF.from_xml_string(_urdf(p, lift=lift))
     adjacent = module.adjacent_pairs(robot)
-    generated = adjacent | (module.lift_pairs(robot) - adjacent)
+    generated = adjacent | (module.lift_pairs(robot, mounted=lift != 'scissor') - adjacent)
     text = (PKG / 'srdf' / f'acm_panda{suffix}.xacro').read_text()
     committed = {tuple(sorted(m)) for m in re.findall(r'link1="([^"]+)" link2="([^"]+)"', text)}
     assert generated == committed, (

@@ -5,6 +5,7 @@ robot:
   name: mobile_manipulator
   xacro_args:
     arm: ur10e
+    base: generic_base
     tcp_xyz: "0 0 0.165"
 
 frames:
@@ -62,3 +63,4 @@ base:
   lift_mount_height_m: 0.35     # lift_mount_link above base_footprint
   ground_clearance_m: 0.05
   mass_kg: 60.0
+  arm_mount_xy: [0.0, 0.0]      # arm base in base_footprint (x, y); stationing places the footprint by it

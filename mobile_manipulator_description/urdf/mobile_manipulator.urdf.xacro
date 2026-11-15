@@ -72,8 +72,10 @@
   </xacro:arm>
 
   <!-- hardware:=gazebo mounts the tool on ft_sensor_link (zero offset from the flange, defined in
-       sim_gazebo) so the F/T sensor sits between the flange and the tool. -->
-  <xacro:generic_tool parent="${'ft_sensor_link' if '$(arg hardware)' == 'gazebo' else 'arm_flange_link'}" tcp_xyz="$(arg tcp_xyz)" tcp_rpy="$(arg tcp_rpy)">
+       sim_gazebo) so the F/T sensor sits between the flange and the tool. There the tool body has no
+       collision of its own: sim_gazebo adds a spring-loaded tip link that carries it. -->
+  <xacro:generic_tool parent="${'ft_sensor_link' if '$(arg hardware)' == 'gazebo' else 'arm_flange_link'}" tcp_xyz="$(arg tcp_xyz)" tcp_rpy="$(arg tcp_rpy)"
+    collision="${'$(arg hardware)' != 'gazebo'}">
     <origin xyz="0 0 0" rpy="0 0 0"/>
   </xacro:generic_tool>
 

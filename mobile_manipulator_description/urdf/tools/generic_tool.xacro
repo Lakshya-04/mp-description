@@ -3,17 +3,19 @@
      tool (sprayer, mop, sander) by providing the same two links. The TCP is what planners
      and coverage poses target. -->
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro">
-  <xacro:macro name="generic_tool" params="parent *origin prefix:='' tcp_xyz:='0 0 0.165' tcp_rpy:='0 0 0' body_length:=0.1 body_radius:=0.04">
+  <xacro:macro name="generic_tool" params="parent *origin prefix:='' tcp_xyz:='0 0 0.165' tcp_rpy:='0 0 0' body_length:=0.1 body_radius:=0.04 collision:=true">
     <link name="${prefix}tool_mount_link">
       <visual>
         <origin xyz="0 0 ${body_length / 2.0}" rpy="0 0 0"/>
         <geometry><cylinder radius="${body_radius}" length="${body_length}"/></geometry>
         <material name="tool_orange"><color rgba="0.95 0.5 0.1 1"/></material>
       </visual>
-      <collision>
-        <origin xyz="0 0 ${body_length / 2.0}" rpy="0 0 0"/>
-        <geometry><cylinder radius="${body_radius}" length="${body_length}"/></geometry>
-      </collision>
+      <xacro:if value="${collision}">
+        <collision>
+          <origin xyz="0 0 ${body_length / 2.0}" rpy="0 0 0"/>
+          <geometry><cylinder radius="${body_radius}" length="${body_length}"/></geometry>
+        </collision>
+      </xacro:if>
       <inertial><mass value="0.5"/><inertia ixx="0.001" ixy="0" ixz="0" iyy="0.001" iyz="0" izz="0.0005"/></inertial>
     </link>
     <joint name="${prefix}tool_mount_joint" type="fixed">

@@ -55,9 +55,26 @@ def adjacent_pairs(robot):
     return pairs
 
 
-def lift_pairs(robot):
+def lift_pairs(robot, mounted=True):
     lift = sorted(n for n in collision_links(robot) if n.startswith(LIFT_PREFIXES))
-    return {tuple(p) for p in itertools.combinations(lift, 2)}
+    pairs = {tuple(p) for p in itertools.combinations(lift, 2)}
+    # Whatever is bolted to the lift (the arm's root link on the carriage, the chassis under the column)
+    # sits inside the stages' envelope for part of the stroke: the arm base vs stage 2 truncated every
+    # contact path. Those links never collide with the lift by construction.
+    mounted_links = set()
+    for a, b in adjacent_pairs(robot) if mounted else ():
+        if (a in lift) != (b in lift):
+            mounted_links.add(b if a in lift else a)
+    # the next link (the shoulder) turns right beside the column and rides in the same envelope
+    first = set(mounted_links)
+    for a, b in adjacent_pairs(robot) if mounted else ():
+        if a in first and a.startswith('arm_') and b not in lift:
+            mounted_links.add(b)
+        elif b in first and b.startswith('arm_') and a not in lift:
+            mounted_links.add(a)
+    for link in mounted_links:
+        pairs |= {tuple(sorted((link, n))) for n in lift}
+    return pairs
 
 
 def main():
