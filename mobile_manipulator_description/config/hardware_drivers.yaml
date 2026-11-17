@@ -1,0 +1,82 @@
+# hardware:=real driver table: arm (the profile's `arm` xacro argument) -> vendor driver.
+#
+# The vendor drivers are NOT vendored and not a dependency of this repository: install the one you need
+# (see docs/hardware_bringup.md). `hardware:=real` reads this file at xacro time, emits the driver's
+# ros2_control plugin, and launch/hardware_real.launch.py refuses to start when `package` is not found.
+#
+# Everything below comes from the drivers' public documentation and was NOT run on hardware or checked
+# against an installed driver: confirm the plugin name, parameter names and joint order against the version
+# you install before the first power-up (a wrong plugin name fails at load time, a wrong joint order moves
+# the wrong joint).
+#
+# Fields per driver:
+#   arms              `arm` values served by this driver (matched exactly); `mock` is chosen explicitly
+#   package           ROS package that must be installed (looked up in the ament index)
+#   plugin            ros2_control SystemInterface class
+#   required_params   <param> entries with no safe default; hardware:=real fails without them
+#                     (pass `real_params:="robot_ip=192.168.1.10"`)
+#   params            optional <param> entries with their defaults (all values are strings)
+#   command_interfaces  what the driver accepts per arm joint (JTAC needs position and velocity)
+#   ft_source         where the tool wrench comes from:
+#                       kind driver_sensor  the driver exports it as a ros2_control sensor in its own system
+#                       kind topic          a wrist-sensor topic read by ft_bridge_hardware (WrenchStamped)
+#                       kind injection      scripted wrench (mock only)
+#                       kind none           the arm has no wrench source; the external wrench is an estimate
+#                                           (or absent) and force control must not be trusted without one
+#   lift_plugin       optional: ros2_control plugin for the lift joint, which no arm vendor driver owns;
+#                     without it a profile with a moving lift fails (pass real_lift_plugin:=<plugin>)
+#   notes             what to check
+drivers:
+  mock:
+    arms: []
+    package: ''
+    plugin: mock_components/GenericSystem
+    required_params: []
+    params: {}
+    command_interfaces: [position, velocity]
+    ft_source: {kind: injection, sensor: ft_sensor}
+    lift_plugin: mock_components/GenericSystem
+    notes: CI and docker path; the same wiring as a vendor driver with no robot attached.
+
+  ufactory:
+    arms: [xarm5, xarm6, xarm7, lite6, uf850]
+    package: xarm_controller
+    plugin: xarm_control/UFRobotSystemHardware
+    required_params: [robot_ip]
+    params: {hw_ns: xarm, velocity_control: 'true', report_type: normal}
+    command_interfaces: [position, velocity]
+    ft_source:
+      kind: topic
+      topic: /xarm/uf_ftsensor_ext_states
+      sensor: uf_ft_sensor
+    notes: >-
+      xarm_ros2 picks position or velocity command through `velocity_control`; JTAC needs the velocity
+      interface, check that the position interface is still exported. The wrist sensor is the UFACTORY
+      external F/T sensor; its topic name depends on `hw_ns`. Source: github.com/xArm-Developer/xarm_ros2.
+
+  ur:
+    arms: [ur3, ur3e, ur5, ur5e, ur10, ur10e, ur16e, ur20, ur30]
+    package: ur_robot_driver
+    plugin: ur_robot_driver/URPositionHardwareInterface
+    required_params: [robot_ip, script_filename, output_recipe_filename, input_recipe_filename]
+    params: {headless_mode: 'false', use_tool_communication: 'false'}
+    command_interfaces: [position, velocity]
+    ft_source: {kind: driver_sensor, sensor: tcp_fts_sensor}
+    notes: >-
+      Script and recipe files ship in the ur_robot_driver share directory (resources/). The driver reports
+      the TCP wrench of the controller (an estimate unless the robot has a wrist F/T sensor such as the e-Series
+      built-in one), in the base frame: check the frame against `ft_sensor.frame.id` of JTAC. The driver
+      expects the UR joint order; the profile's `joints.arm` must keep it. Source: Universal_Robots_ROS2_Driver.
+
+  franka:
+    arms: [panda, fr3]
+    package: franka_hardware
+    plugin: franka_hardware/FrankaHardwareInterface
+    required_params: [robot_ip]
+    params: {arm_id: panda}
+    command_interfaces: [position, velocity]
+    ft_source: {kind: none}
+    notes: >-
+      franka_ros2 exposes the estimated external wrench through franka_robot_state, not as a wrist sensor;
+      no F/T sensor interface is declared here. Its default command interface is effort: check that position
+      and velocity are available in the version you install. Source: github.com/frankaemika/franka_ros2.

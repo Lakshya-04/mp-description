@@ -18,6 +18,16 @@
                             effort state, the F/T sensor `ft_sensor` as a gz force_torque sensor on
                             tool_mount_joint, and the base pinned to the world (package sim_gazebo,
                             docs/sim_gazebo.md).
+       hardware:=real       a vendor ros2_control driver chosen from the arm by config/hardware_drivers.yaml
+                            (ufactory xarm_ros2, ur_robot_driver, franka_ros2; none is vendored here), or
+                            real_driver:=mock for the same wiring on mock_components. Not one block but
+                            four blocks: `lift_system` (the lift joint; no arm vendor drives it, so a plugin
+                            is required), `arm_system` (the driver plugin, the arm joints, the driver's own
+                            F/T sensor if it has one), `ft_sensor_bridge` (a wrist-sensor topic through
+                            ft_bridge_hardware, for drivers that publish one) and `ft_conditioned_bridge`
+                            (the conditioned wrench `ft_sensor_tcp`, as for mujoco). Arguments: real_driver
+                            (auto = by arm), real_params ("k=v,k=v", the driver's required parameters,
+                            e.g. robot_ip), real_lift_plugin. docs/hardware_bringup.md, section 0a.
      A real or simulated backend replaces this one block, nothing else changes.
      The mimic lift stages are not commanded: robot_state_publisher resolves them. -->
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro">
@@ -38,14 +48,109 @@
     </joint>
   </xacro:macro>
 
+  <!-- The arm joints of the profile (xacro has no loop; up to 12 joints), shared by the simulated/mock block and the real arm block. -->
+  <xacro:macro name="arm_position_joints" params="vel_cmd eff_state">
+        <xacro:if value="${arm_dof > 0}"><xacro:position_joint name="${arm_joint_names[0]}" initial="${home_arm[0]}" velocity_command="${vel_cmd}" effort_state="${eff_state}"/></xacro:if>
+        <xacro:if value="${arm_dof > 1}"><xacro:position_joint name="${arm_joint_names[1]}" initial="${home_arm[1]}" velocity_command="${vel_cmd}" effort_state="${eff_state}"/></xacro:if>
+        <xacro:if value="${arm_dof > 2}"><xacro:position_joint name="${arm_joint_names[2]}" initial="${home_arm[2]}" velocity_command="${vel_cmd}" effort_state="${eff_state}"/></xacro:if>
+        <xacro:if value="${arm_dof > 3}"><xacro:position_joint name="${arm_joint_names[3]}" initial="${home_arm[3]}" velocity_command="${vel_cmd}" effort_state="${eff_state}"/></xacro:if>
+        <xacro:if value="${arm_dof > 4}"><xacro:position_joint name="${arm_joint_names[4]}" initial="${home_arm[4]}" velocity_command="${vel_cmd}" effort_state="${eff_state}"/></xacro:if>
+        <xacro:if value="${arm_dof > 5}"><xacro:position_joint name="${arm_joint_names[5]}" initial="${home_arm[5]}" velocity_command="${vel_cmd}" effort_state="${eff_state}"/></xacro:if>
+        <xacro:if value="${arm_dof > 6}"><xacro:position_joint name="${arm_joint_names[6]}" initial="${home_arm[6]}" velocity_command="${vel_cmd}" effort_state="${eff_state}"/></xacro:if>
+        <xacro:if value="${arm_dof > 7}"><xacro:position_joint name="${arm_joint_names[7]}" initial="${home_arm[7]}" velocity_command="${vel_cmd}" effort_state="${eff_state}"/></xacro:if>
+        <xacro:if value="${arm_dof > 8}"><xacro:position_joint name="${arm_joint_names[8]}" initial="${home_arm[8]}" velocity_command="${vel_cmd}" effort_state="${eff_state}"/></xacro:if>
+        <xacro:if value="${arm_dof > 9}"><xacro:position_joint name="${arm_joint_names[9]}" initial="${home_arm[9]}" velocity_command="${vel_cmd}" effort_state="${eff_state}"/></xacro:if>
+        <xacro:if value="${arm_dof > 10}"><xacro:position_joint name="${arm_joint_names[10]}" initial="${home_arm[10]}" velocity_command="${vel_cmd}" effort_state="${eff_state}"/></xacro:if>
+        <xacro:if value="${arm_dof > 11}"><xacro:position_joint name="${arm_joint_names[11]}" initial="${home_arm[11]}" velocity_command="${vel_cmd}" effort_state="${eff_state}"/></xacro:if>
+  </xacro:macro>
+
+  <xacro:macro name="ft_sensor_interfaces" params="name">
+    <sensor name="${name}">
+      <state_interface name="force.x"/>
+      <state_interface name="force.y"/>
+      <state_interface name="force.z"/>
+      <state_interface name="torque.x"/>
+      <state_interface name="torque.y"/>
+      <state_interface name="torque.z"/>
+    </sensor>
+  </xacro:macro>
+
+  <xacro:macro name="driver_param" params="index params">
+    <xacro:if value="${len(params) > index}"><param name="${list(params.items())[index][0]}">${list(params.items())[index][1]}</param></xacro:if>
+  </xacro:macro>
+
+  <!-- hardware:=real. The table, the arm and the arguments decide everything; every failure raises a
+       KeyError whose key is the message (same trick as the unknown-hardware check below). -->
+  <xacro:macro name="mobile_manipulator_real_ros2_control">
+    <xacro:property name="rd_table" value="${load_yaml('$(find mobile_manipulator_description)/config/hardware_drivers.yaml')['drivers']}"/>
+    <xacro:property name="rd_key" value="${'$(arg real_driver)' if '$(arg real_driver)' not in ('', 'auto') else ([k for k in rd_table if '$(arg arm)' in rd_table[k]['arms']] or [''])[0]}"/>
+    <xacro:unless value="${rd_key in rd_table}">
+      <xacro:if value="${dict()['hardware:=real: no driver for arm $(arg arm) (real_driver=$(arg real_driver)); add it to config/hardware_drivers.yaml or pass real_driver:=mock']}"/>
+    </xacro:unless>
+    <xacro:property name="rd" value="${rd_table[rd_key]}"/>
+    <xacro:property name="rd_params" value="${dict(list((rd.get('params') or dict()).items()) + [kv.strip().split('=', 1) for kv in '$(arg real_params)'.split(',') if kv.strip()])}"/>
+    <xacro:property name="rd_missing" value="${[p for p in rd['required_params'] if p not in rd_params]}"/>
+    <xacro:unless value="${len(rd_missing) == 0}">
+      <xacro:if value="${dict()['hardware:=real needs real_params for driver ' + rd_key + ': ' + ', '.join(rd_missing)]}"/>
+    </xacro:unless>
+    <xacro:property name="rd_ft" value="${rd['ft_source']}"/>
+    <xacro:property name="rd_vel" value="${'velocity' in rd['command_interfaces']}"/>
+    <xacro:property name="rd_lift_plugin" value="${'$(arg real_lift_plugin)' or rd.get('lift_plugin', '')}"/>
+    <xacro:if value="${lift_actuated}">
+      <xacro:unless value="${rd_lift_plugin != ''}">
+        <xacro:if value="${dict()['hardware:=real: the profile has a moving lift and no arm vendor driver drives it; pass real_lift_plugin:=PLUGIN (the ros2_control plugin of your lift)']}"/>
+      </xacro:unless>
+      <ros2_control name="lift_system" type="system">
+        <hardware><plugin>${rd_lift_plugin}</plugin></hardware>
+        <xacro:position_joint name="${lift_joint_name}" initial="${home_lift}" velocity_command="${rd_vel}"/>
+      </ros2_control>
+    </xacro:if>
+    <ros2_control name="arm_system" type="system">
+      <hardware>
+        <plugin>${rd['plugin']}</plugin>
+        <xacro:driver_param index="0" params="${rd_params}"/>
+        <xacro:driver_param index="1" params="${rd_params}"/>
+        <xacro:driver_param index="2" params="${rd_params}"/>
+        <xacro:driver_param index="3" params="${rd_params}"/>
+        <xacro:driver_param index="4" params="${rd_params}"/>
+        <xacro:driver_param index="5" params="${rd_params}"/>
+        <xacro:driver_param index="6" params="${rd_params}"/>
+        <xacro:driver_param index="7" params="${rd_params}"/>
+        <xacro:driver_param index="8" params="${rd_params}"/>
+        <xacro:driver_param index="9" params="${rd_params}"/>
+      </hardware>
+      <xacro:arm_position_joints vel_cmd="${rd_vel}" eff_state="false"/>
+      <xacro:if value="${rd_ft['kind'] == 'driver_sensor'}"><xacro:ft_sensor_interfaces name="${rd_ft['sensor']}"/></xacro:if>
+    </ros2_control>
+    <xacro:if value="${rd_ft['kind'] in ('topic', 'injection')}">
+      <ros2_control name="ft_sensor_bridge" type="sensor">
+        <hardware>
+          <plugin>ft_bridge_hardware/FtBridgeHardwareInterface</plugin>
+          <xacro:if value="${rd_ft['kind'] == 'topic'}"><param name="source_topic">${rd_ft['topic']}</param></xacro:if>
+          <xacro:if value="${rd_ft['kind'] == 'injection'}"><param name="injection_mode">true</param></xacro:if>
+        </hardware>
+        <xacro:ft_sensor_interfaces name="${rd_ft['sensor']}"/>
+      </ros2_control>
+    </xacro:if>
+    <ros2_control name="ft_conditioned_bridge" type="sensor">
+      <hardware>
+        <plugin>ft_bridge_hardware/FtBridgeHardwareInterface</plugin>
+        <param name="source_topic">/ft_conditioner/wrench_conditioned</param>
+      </hardware>
+      <xacro:ft_sensor_interfaces name="ft_sensor_tcp"/>
+    </ros2_control>
+  </xacro:macro>
+
   <xacro:macro name="mobile_manipulator_ros2_control" params="hardware:=mock">
     <xacro:property name="vel_cmd" value="${hardware in ('jtac_mock', 'mujoco', 'gazebo')}"/>
     <!-- Fail loudly instead of emitting a <hardware> block with no plugin; a backend adds itself to the
          tuple here and below. The dict lookup raises a KeyError that names the bad value. -->
-    <xacro:unless value="${hardware in ('mock', 'jtac_mock', 'mujoco', 'gazebo')}">
+    <xacro:unless value="${hardware in ('mock', 'jtac_mock', 'mujoco', 'gazebo', 'real')}">
       <xacro:if value="${dict()['unknown hardware: ' + hardware + ' (add a branch in mobile_manipulator.ros2_control.xacro)']}"/>
     </xacro:unless>
     <xacro:property name="eff_state" value="${hardware == 'gazebo'}"/>
+    <xacro:if value="${hardware == 'real'}"><xacro:mobile_manipulator_real_ros2_control/></xacro:if>
+    <xacro:unless value="${hardware == 'real'}">
     <ros2_control name="mobile_manipulator_system" type="system">
       <hardware>
         <xacro:if value="${hardware in ('mock', 'jtac_mock')}">
@@ -60,19 +165,7 @@
       <xacro:if value="${lift_actuated}">
         <xacro:position_joint name="${lift_joint_name}" initial="${home_lift}" velocity_command="${vel_cmd}" effort_state="${eff_state}"/>
       </xacro:if>
-      <!-- One entry per arm joint of the profile (xacro has no loop; up to 12 joints). -->
-      <xacro:if value="${arm_dof > 0}"><xacro:position_joint name="${arm_joint_names[0]}" initial="${home_arm[0]}" velocity_command="${vel_cmd}" effort_state="${eff_state}"/></xacro:if>
-      <xacro:if value="${arm_dof > 1}"><xacro:position_joint name="${arm_joint_names[1]}" initial="${home_arm[1]}" velocity_command="${vel_cmd}" effort_state="${eff_state}"/></xacro:if>
-      <xacro:if value="${arm_dof > 2}"><xacro:position_joint name="${arm_joint_names[2]}" initial="${home_arm[2]}" velocity_command="${vel_cmd}" effort_state="${eff_state}"/></xacro:if>
-      <xacro:if value="${arm_dof > 3}"><xacro:position_joint name="${arm_joint_names[3]}" initial="${home_arm[3]}" velocity_command="${vel_cmd}" effort_state="${eff_state}"/></xacro:if>
-      <xacro:if value="${arm_dof > 4}"><xacro:position_joint name="${arm_joint_names[4]}" initial="${home_arm[4]}" velocity_command="${vel_cmd}" effort_state="${eff_state}"/></xacro:if>
-      <xacro:if value="${arm_dof > 5}"><xacro:position_joint name="${arm_joint_names[5]}" initial="${home_arm[5]}" velocity_command="${vel_cmd}" effort_state="${eff_state}"/></xacro:if>
-      <xacro:if value="${arm_dof > 6}"><xacro:position_joint name="${arm_joint_names[6]}" initial="${home_arm[6]}" velocity_command="${vel_cmd}" effort_state="${eff_state}"/></xacro:if>
-      <xacro:if value="${arm_dof > 7}"><xacro:position_joint name="${arm_joint_names[7]}" initial="${home_arm[7]}" velocity_command="${vel_cmd}" effort_state="${eff_state}"/></xacro:if>
-      <xacro:if value="${arm_dof > 8}"><xacro:position_joint name="${arm_joint_names[8]}" initial="${home_arm[8]}" velocity_command="${vel_cmd}" effort_state="${eff_state}"/></xacro:if>
-      <xacro:if value="${arm_dof > 9}"><xacro:position_joint name="${arm_joint_names[9]}" initial="${home_arm[9]}" velocity_command="${vel_cmd}" effort_state="${eff_state}"/></xacro:if>
-      <xacro:if value="${arm_dof > 10}"><xacro:position_joint name="${arm_joint_names[10]}" initial="${home_arm[10]}" velocity_command="${vel_cmd}" effort_state="${eff_state}"/></xacro:if>
-      <xacro:if value="${arm_dof > 11}"><xacro:position_joint name="${arm_joint_names[11]}" initial="${home_arm[11]}" velocity_command="${vel_cmd}" effort_state="${eff_state}"/></xacro:if>
+      <xacro:arm_position_joints vel_cmd="${vel_cmd}" eff_state="${eff_state}"/>
       <xacro:if value="${hardware in ('mujoco', 'gazebo')}">
         <sensor name="ft_sensor">
           <state_interface name="force.x"/>
@@ -84,6 +177,7 @@
         </sensor>
       </xacro:if>
     </ros2_control>
+    </xacro:unless>
     <xacro:if value="${hardware == 'gazebo'}"><xacro:sim_gazebo_tags/></xacro:if>
     <xacro:if value="${hardware == 'mujoco'}">
       <ros2_control name="ft_conditioned_bridge" type="sensor">

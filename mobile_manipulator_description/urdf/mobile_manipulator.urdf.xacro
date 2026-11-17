@@ -35,6 +35,12 @@
   <xacro:arg name="tcp_rpy" default="0 0 0"/>
   <!-- "none" (description only) or "mock" (adds the ros2_control block with mock hardware). -->
   <xacro:arg name="hardware" default="none"/>
+  <!-- hardware:=real only (config/hardware_drivers.yaml, docs/hardware_bringup.md): the vendor driver
+       ("auto" = by arm; ufactory | ur | franka | mock), its required parameters as "key=value,key=value",
+       and the ros2_control plugin of the lift (empty = the driver table's, which only mock has). -->
+  <xacro:arg name="real_driver" default="auto"/>
+  <xacro:arg name="real_params" default=""/>
+  <xacro:arg name="real_lift_plugin" default=""/>
 
   <xacro:include filename="$(find mobile_manipulator_description)/urdf/base/generic_base.xacro"/>
   <xacro:include filename="$(find mobile_manipulator_description)/urdf/base/ranger_mini.xacro"/>

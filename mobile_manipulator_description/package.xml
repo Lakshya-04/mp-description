@@ -20,6 +20,9 @@
   <exec_depend>robot_state_publisher</exec_depend>
   <exec_depend>joint_state_publisher_gui</exec_depend>
   <exec_depend>rviz2</exec_depend>
+  <exec_depend>launch</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
+  <exec_depend>controller_manager</exec_depend>
   <!-- Only needed when rendering with arm:=ur*; not required for the generic arm. -->
   <exec_depend>ur_description</exec_depend>
 

@@ -16,6 +16,7 @@ if(BUILD_TESTING)
     ament_add_pytest_test(test_profile test/test_profile.py)
     ament_add_pytest_test(test_arm_swap test/test_arm_swap.py)
     ament_add_pytest_test(test_hardware_selector test/test_hardware_selector.py)
+    ament_add_pytest_test(test_hardware_real test/test_hardware_real.py)
   endif()
 endif()
 
