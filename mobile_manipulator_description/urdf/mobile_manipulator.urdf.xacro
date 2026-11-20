@@ -5,7 +5,7 @@
      Every part is swappable behind a small contract (see each file's header):
        base  urdf/base/base.xacro  (generic_base | ranger_mini | scout_mini | scout | husky | mpo_500 | mir100 | turtlebot3_*)
        lift  urdf/lift/lift.xacro  (telescopic | scissor | fixed | none)
-       arm   urdf/arms/arm.xacro  (generic_6dof | panda | ur3 | ur5 | ur10 | ur10e | ur16e | ur20 | ...)
+       arm   urdf/arms/arm.xacro  (generic_6dof | panda | fr3 | iiwa7 | kinova_gen3 | xarm7 | ur3 | ur5 | ur10 | ur10e | ur16e | ur20 | ...)
        tool  urdf/tools/generic_tool.xacro
 
      Render:  xacro mobile_manipulator.urdf.xacro arm:=ur10e lift_stroke:=1.5 tcp_xyz:="0 0 0.165"
@@ -58,6 +58,11 @@
   <xacro:include filename="$(find mobile_manipulator_description)/urdf/tools/generic_tool.xacro"/>
   <xacro:include filename="$(find mobile_manipulator_description)/urdf/arms/generic_6dof_arm.xacro"/>
   <xacro:include filename="$(find mobile_manipulator_description)/urdf/arms/panda_arm.xacro"/>
+  <xacro:include filename="$(find mobile_manipulator_description)/urdf/arms/serial_arm_common.xacro"/>
+  <xacro:include filename="$(find mobile_manipulator_description)/urdf/arms/fr3_arm.xacro"/>
+  <xacro:include filename="$(find mobile_manipulator_description)/urdf/arms/iiwa7_arm.xacro"/>
+  <xacro:include filename="$(find mobile_manipulator_description)/urdf/arms/kinova_gen3_arm.xacro"/>
+  <xacro:include filename="$(find mobile_manipulator_description)/urdf/arms/xarm7_arm.xacro"/>
   <xacro:if value="${'$(arg arm)'.startswith('ur')}">
     <xacro:include filename="$(find mobile_manipulator_description)/urdf/arms/ur_arm.xacro"/>
   </xacro:if>

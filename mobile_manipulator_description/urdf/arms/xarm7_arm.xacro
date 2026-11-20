@@ -1,0 +1,43 @@
+<?xml version="1.0"?>
+<!-- UFactory xArm 7 (7-DOF), primitives only. Joint frames: xarm7_default_kinematics.yaml of
+     xarm_ros2 (BSD-3; read, not copied), the published xArm7 DH table (d1 0.267, d3 0.293,
+     a4 0.0525, a5 0.0775, d5 0.3425, a7 0.076, d7 0.097 m). Position limits from xarm7.urdf.xacro:
+     joints 1, 3, 5, 7 +-2 pi; joint 2 [-2.059, 2.0944]; joint 4 [-0.19198, 3.927]; joint 6
+     [-1.69297, pi] rad; velocity 3.14 rad/s; effort 163.2 / 163.2 / 81.6 / 81.6 / 81.6 / 30.6 / 30.6
+     N m (xarm7/joint_limits.yaml: torque constant * gear ratio * overload, a peak figure). The flange
+     is link7's frame (the vendor's link_eef is the same frame). No vendor mesh. -->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+  <xacro:macro name="xarm7_arm" params="parent *origin prefix:='arm_'">
+    <xacro:sa_base prefix="${prefix}" parent="${parent}"><xacro:insert_block name="origin"/></xacro:sa_base>
+
+    <xacro:sa_link name="${prefix}link1" radius="0.06" from_z="-0.267"/>
+    <xacro:sa_joint prefix="${prefix}" n="1" parent="${prefix}base_link" child="${prefix}link1"
+      xyz="0 0 0.267" lower="${-2*pi}" upper="${2*pi}" velocity="3.14" effort="163.2"/>
+
+    <xacro:sa_link name="${prefix}link2" radius="0.06" to_y="-0.293"/>
+    <xacro:sa_joint prefix="${prefix}" n="2" parent="${prefix}link1" child="${prefix}link2"
+      rpy="${-pi/2} 0 0" lower="-2.059" upper="2.0944" velocity="3.14" effort="163.2"/>
+
+    <xacro:sa_link name="${prefix}link3" radius="0.055" to_x="0.0525"/>
+    <xacro:sa_joint prefix="${prefix}" n="3" parent="${prefix}link2" child="${prefix}link3"
+      xyz="0 -0.293 0" rpy="${pi/2} 0 0" lower="${-2*pi}" upper="${2*pi}" velocity="3.14" effort="81.6"/>
+
+    <xacro:sa_link name="${prefix}link4" radius="0.05" to_x="0.0775" to_y="-0.3425"/>
+    <xacro:sa_joint prefix="${prefix}" n="4" parent="${prefix}link3" child="${prefix}link4"
+      xyz="0.0525 0 0" rpy="${pi/2} 0 0" lower="-0.19198" upper="3.927" velocity="3.14" effort="81.6"/>
+
+    <xacro:sa_link name="${prefix}link5" radius="0.045"/>
+    <xacro:sa_joint prefix="${prefix}" n="5" parent="${prefix}link4" child="${prefix}link5"
+      xyz="0.0775 -0.3425 0" rpy="${pi/2} 0 0" lower="${-2*pi}" upper="${2*pi}" velocity="3.14" effort="81.6"/>
+
+    <xacro:sa_link name="${prefix}link6" radius="0.045" to_x="0.076" to_y="0.097"/>
+    <xacro:sa_joint prefix="${prefix}" n="6" parent="${prefix}link5" child="${prefix}link6"
+      rpy="${pi/2} 0 0" lower="-1.69297" upper="${pi}" velocity="3.14" effort="30.6"/>
+
+    <xacro:sa_link name="${prefix}link7" radius="0.04"/>
+    <xacro:sa_joint prefix="${prefix}" n="7" parent="${prefix}link6" child="${prefix}link7"
+      xyz="0.076 0.097 0" rpy="${-pi/2} 0 0" lower="${-2*pi}" upper="${2*pi}" velocity="3.14" effort="30.6"/>
+
+    <xacro:sa_flange prefix="${prefix}" last="${prefix}link7" xyz="0 0 0"/>
+  </xacro:macro>
+</robot>

@@ -4,7 +4,7 @@
        links    `${prefix}base_link`   fixed to `parent` at *origin (arm base, z up)
                 `${prefix}flange_link` the tool flange, z pointing out of the last link
        joints   N actuated revolute joints between the two, in kinematic order (N is whatever the
-                arm has: 6 for UR and the generic arm, 7 for the Panda-like arm). The profile
+                arm has: 6 for UR and the generic arm, 7 for panda, fr3, iiwa7, kinova_gen3 and xarm7). The profile
                 (config/profiles/<name>.yaml, joints.arm) lists their names, so N is stated
                 once there; the SRDF, ros2_control block and tests follow it.
      Add a new arm by (1) writing arms/<name>.xacro with that macro, (2) adding one branch
@@ -22,6 +22,26 @@
         <xacro:insert_block name="origin"/>
       </xacro:panda_arm>
     </xacro:if>
+    <xacro:if value="${arm_type == 'fr3'}">
+      <xacro:fr3_arm parent="${parent}" prefix="${prefix}">
+        <xacro:insert_block name="origin"/>
+      </xacro:fr3_arm>
+    </xacro:if>
+    <xacro:if value="${arm_type == 'iiwa7'}">
+      <xacro:iiwa7_arm parent="${parent}" prefix="${prefix}">
+        <xacro:insert_block name="origin"/>
+      </xacro:iiwa7_arm>
+    </xacro:if>
+    <xacro:if value="${arm_type == 'kinova_gen3'}">
+      <xacro:kinova_gen3_arm parent="${parent}" prefix="${prefix}">
+        <xacro:insert_block name="origin"/>
+      </xacro:kinova_gen3_arm>
+    </xacro:if>
+    <xacro:if value="${arm_type == 'xarm7'}">
+      <xacro:xarm7_arm parent="${parent}" prefix="${prefix}">
+        <xacro:insert_block name="origin"/>
+      </xacro:xarm7_arm>
+    </xacro:if>
     <xacro:if value="${arm_type.startswith('ur')}">
       <xacro:ur_arm parent="${parent}" prefix="${prefix}" ur_type="${arm_type}">
         <xacro:insert_block name="origin"/>
@@ -29,7 +49,7 @@
     </xacro:if>
     <!-- Fail loudly instead of rendering a robot with no arm. The dict lookup raises a KeyError
          whose message names the bad value. -->
-    <xacro:unless value="${arm_type in ('generic_6dof', 'panda') or arm_type.startswith('ur')}">
+    <xacro:unless value="${arm_type in ('generic_6dof', 'panda', 'fr3', 'iiwa7', 'kinova_gen3', 'xarm7') or arm_type.startswith('ur')}">
       <xacro:if value="${dict()['unknown arm_type: ' + arm_type + ' (add a branch in arms/arm.xacro)']}"/>
     </xacro:unless>
   </xacro:macro>

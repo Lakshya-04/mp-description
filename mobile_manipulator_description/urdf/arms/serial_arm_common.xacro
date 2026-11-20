@@ -1,0 +1,63 @@
+<?xml version="1.0"?>
+<!-- Building blocks for primitives-only serial arms built from a published kinematic table
+     (used by fr3, iiwa7, kinova_gen3, xarm7). A link carries up to two cylinders on the straight
+     segments of the chain: one from `from` (a point in the link frame, usually the previous joint
+     when the parent link does not cover it) to the link origin and one from the origin to `to`
+     (the next joint origin in this link's frame). So the collision shape follows the kinematic
+     chain exactly and is only a planning-grade approximation of the real arm: no vendor mesh. -->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+  <!-- A cylinder from (x1 y1 z1) to (x2 y2 z2) in the link frame; seg (the length) is passed in because
+       properties defined inside a macro are global in xacro. -->
+  <xacro:macro name="sa_cyl" params="x1 y1 z1 x2 y2 z2 radius seg">
+    <visual>
+      <origin xyz="${(x1 + x2) / 2} ${(y1 + y2) / 2} ${(z1 + z2) / 2}"
+              rpy="0 ${acos(max(-1.0, min(1.0, (z2 - z1) / seg)))} ${atan2(y2 - y1, x2 - x1)}"/>
+      <geometry><cylinder radius="${radius}" length="${seg}"/></geometry>
+      <material name="serial_arm_grey"><color rgba="0.8 0.8 0.82 1"/></material>
+    </visual>
+    <collision>
+      <origin xyz="${(x1 + x2) / 2} ${(y1 + y2) / 2} ${(z1 + z2) / 2}"
+              rpy="0 ${acos(max(-1.0, min(1.0, (z2 - z1) / seg)))} ${atan2(y2 - y1, x2 - x1)}"/>
+      <geometry><cylinder radius="${radius}" length="${seg}"/></geometry>
+    </collision>
+  </xacro:macro>
+  <xacro:macro name="sa_segment" params="x1 y1 z1 x2 y2 z2 radius">
+    <xacro:if value="${sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2 + (z2 - z1) ** 2) &gt; 0.0001}">
+      <xacro:sa_cyl x1="${x1}" y1="${y1}" z1="${z1}" x2="${x2}" y2="${y2}" z2="${z2}" radius="${radius}"
+        seg="${sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2 + (z2 - z1) ** 2)}"/>
+    </xacro:if>
+  </xacro:macro>
+
+  <xacro:macro name="sa_link" params="name radius from_x:=0 from_y:=0 from_z:=0 to_x:=0 to_y:=0 to_z:=0 mass:=2.0">
+    <link name="${name}">
+      <xacro:sa_segment x1="${from_x}" y1="${from_y}" z1="${from_z}" x2="0" y2="0" z2="0" radius="${radius}"/>
+      <xacro:sa_segment x1="0" y1="0" z1="0" x2="${to_x}" y2="${to_y}" z2="${to_z}" radius="${radius}"/>
+      <inertial><mass value="${mass}"/><inertia ixx="0.02" ixy="0" ixz="0" iyy="0.02" iyz="0" izz="0.01"/></inertial>
+    </link>
+  </xacro:macro>
+
+  <xacro:macro name="sa_joint" params="prefix n parent child lower upper velocity effort xyz:='0 0 0' rpy:='0 0 0' axis:='0 0 1'">
+    <joint name="${prefix}joint${n}" type="revolute">
+      <parent link="${parent}"/><child link="${child}"/>
+      <origin xyz="${xyz}" rpy="${rpy}"/><axis xyz="${axis}"/>
+      <limit lower="${lower}" upper="${upper}" effort="${effort}" velocity="${velocity}"/>
+    </joint>
+  </xacro:macro>
+
+  <!-- Fixed mount of the arm base and the flange (arm contract, see arm.xacro). -->
+  <xacro:macro name="sa_base" params="prefix parent *origin">
+    <link name="${prefix}base_link"/>
+    <joint name="${prefix}base_joint" type="fixed">
+      <parent link="${parent}"/>
+      <child link="${prefix}base_link"/>
+      <xacro:insert_block name="origin"/>
+    </joint>
+  </xacro:macro>
+  <xacro:macro name="sa_flange" params="prefix last xyz rpy:='0 0 0'">
+    <link name="${prefix}flange_link"/>
+    <joint name="${prefix}flange_joint" type="fixed">
+      <parent link="${last}"/><child link="${prefix}flange_link"/>
+      <origin xyz="${xyz}" rpy="${rpy}"/>
+    </joint>
+  </xacro:macro>
+</robot>

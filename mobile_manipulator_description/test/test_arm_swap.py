@@ -1,5 +1,6 @@
 """Arm swap test: for each profile, render the URDF and SRDF and check that joint names, DOF,
-group names, limits and the home pose agree with what the profile says (N = 6 and N = 7)."""
+group names, limits and the home pose agree with what the profile says (N = 6 and N = 7).
+Profiles are listed once, in PROFILES, so a new arm is covered as soon as it is added there."""
 import importlib.util
 import os
 import pathlib
@@ -44,9 +45,13 @@ def _has_ur_description():
         return False
 
 
-PROFILES = ['generic_6dof_telescopic', 'panda_telescopic']
+SEVEN_DOF = ['panda_telescopic', 'fr3_telescopic', 'iiwa7_telescopic', 'kinova_gen3_telescopic',
+             'xarm7_telescopic']
+UR_PROFILES = ['ur10e_telescopic', 'ur3e_telescopic', 'ur5e_telescopic', 'ur16e_telescopic',
+               'ur20_telescopic']
+PROFILES = ['generic_6dof_telescopic', *SEVEN_DOF]
 if _has_ur_description():
-    PROFILES.append('ur10e_telescopic')
+    PROFILES.extend(UR_PROFILES)
 
 
 def _urdf(profile, **extra):
@@ -69,10 +74,13 @@ def test_urdf_matches_profile(name):
     assert chain == p.joints
     arm_joints = [robot.joint_map[j] for j in p.arm_joints]
     assert len(arm_joints) == p.arm_dof
-    assert all(j.type == 'revolute' for j in arm_joints)
+    # ur_description models the UR3/UR3e last joint as continuous (no position limits)
+    assert all(j.type in ('revolute', 'continuous') for j in arm_joints)
     assert robot.joint_map[p.lift_joint].type == 'prismatic'
     for j in arm_joints:
-        assert j.limit.lower < j.limit.upper and j.limit.velocity > 0
+        if j.type == 'revolute':
+            assert j.limit.lower < j.limit.upper
+        assert j.limit is not None and j.limit.velocity > 0
 
 
 @pytest.mark.parametrize('name', PROFILES)
@@ -117,18 +125,19 @@ def test_srdf_without_profile_follows_the_arm():
 
 
 @pytest.mark.parametrize('lift,suffix', [('telescopic', ''), ('scissor', '_scissor'), ('none', '_none')])
-def test_panda_acm_is_up_to_date(lift, suffix):
+@pytest.mark.parametrize('name', SEVEN_DOF)
+def test_seven_dof_acm_is_up_to_date(name, lift, suffix):
     spec = importlib.util.spec_from_file_location('generate_acm', PKG / 'scripts' / 'generate_acm.py')
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
-    p = load_profile('panda_telescopic')
+    p = load_profile(name)
     robot = URDF.from_xml_string(_urdf(p, lift=lift))
     adjacent = module.adjacent_pairs(robot)
     generated = adjacent | (module.lift_pairs(robot, mounted=lift != 'scissor') - adjacent)
-    text = (PKG / 'srdf' / f'acm_panda{suffix}.xacro').read_text()
+    text = (PKG / 'srdf' / f'acm_{p.arm}{suffix}.xacro').read_text()
     committed = {tuple(sorted(m)) for m in re.findall(r'link1="([^"]+)" link2="([^"]+)"', text)}
     assert generated == committed, (
-        f'run scripts/generate_acm.py --arm panda --lift {lift} --out srdf/acm_panda{suffix}.xacro')
+        f'run scripts/generate_acm.py --arm {p.arm} --lift {lift} --out srdf/acm_{p.arm}{suffix}.xacro')
 
 
 # Arm swap combined with other lifts and bases: the arm joints and the whole-body group follow
@@ -187,12 +196,13 @@ def _link_poses_at_zero(root):
     return poses
 
 
-def test_panda_collision_cylinders_lie_on_the_kinematic_chain():
+@pytest.mark.parametrize('name', SEVEN_DOF)
+def test_collision_cylinders_lie_on_the_kinematic_chain(name):
     """Every joint-to-joint segment of the Panda chain is covered by a collision cylinder, and no
     cylinder sticks out of the chain (the arm is built from primitives, so a wrong axis or offset
     leaves a segment without geometry and adds a phantom bar elsewhere)."""
     import numpy as np
-    root = ET.fromstring(_urdf(load_profile('panda_telescopic')))
+    root = ET.fromstring(_urdf(load_profile(name)))
     poses = _link_poses_at_zero(root)
     links = [f'arm_link{i}' for i in range(1, 8)]
     cylinders = []   # (end a, end b, radius) in world
@@ -224,3 +234,62 @@ def test_panda_collision_cylinders_lie_on_the_kinematic_chain():
         for end in (ea, eb):
             assert min(dist_to_segment(end, a, b) for a, b in segments) < 0.1, \
                 f'cylinder end {end} is off the kinematic chain'
+
+
+# Published zero-pose flange position in the arm base frame (all joints 0), from each arm's
+# documented link lengths: the xacro files are written from those tables, this catches a typo.
+ZERO_POSE_FLANGE = {
+    'iiwa7_telescopic': (0.0, 0.0, 0.34 + 0.4 + 0.4 + 0.126),
+    'fr3_telescopic': (0.088, 0.0, 0.333 + 0.316 + 0.384 - 0.107),
+    'panda_telescopic': (0.088, 0.0, 0.333 + 0.316 + 0.384 - 0.107),
+    # xArm 7: 0.267 + 0.293 up, then the 0.0525 / 0.0775 / 0.076 offsets and 0.3425 / 0.097 links.
+    'xarm7_telescopic': (0.0525 + 0.0775 + 0.076, 0.0, 0.267 + 0.293 - 0.3425 - 0.097),
+}
+
+
+@pytest.mark.parametrize('name', sorted(ZERO_POSE_FLANGE))
+def test_zero_pose_flange_matches_the_published_link_lengths(name):
+    import numpy as np
+    root = ET.fromstring(_urdf(load_profile(name)))
+    poses = _link_poses_at_zero(root)
+    base = poses['arm_base_link'][1]
+    flange = poses['arm_flange_link'][1] - base
+    assert flange == pytest.approx(ZERO_POSE_FLANGE[name], abs=1e-6), np.round(flange, 4)
+
+
+@pytest.mark.parametrize('name', PROFILES)
+def test_reachability_chain_joint_count_comes_from_the_profile(name, tmp_path):
+    """urdf_to_chain.py (the reachability chain builder) finds exactly the profile's arm joints,
+    with the URDF's limits, whatever the DOF."""
+    import subprocess
+    import yaml
+    script = PKG.parents[1] / 'manipulation' / 'reachability' / 'scripts' / 'urdf_to_chain.py'
+    if not script.exists():
+        pytest.skip('reachability package not in this source tree')
+    p = load_profile(name)
+    urdf = tmp_path / 'robot.urdf'
+    urdf.write_text(_urdf(p))
+    out = tmp_path / 'chain.yaml'
+    subprocess.run([sys.executable, str(script), str(urdf), '--base', p.frames['arm_base'],
+                    '--tip', p.tcp_link, '-o', str(out)], check=True, capture_output=True)
+    chain = yaml.safe_load(out.read_text())
+    assert len(chain['joints']) == p.arm_dof
+    robot = URDF.from_xml_string(urdf.read_text())
+    for entry, joint in zip(chain['joints'], p.arm_joints):
+        jt = robot.joint_map[joint]
+        if jt.type == 'continuous':
+            # no position limits in the URDF: the chain builder bounds a continuous joint to one turn
+            assert entry['lower'] == pytest.approx(-3.141592653589793)
+            assert entry['upper'] == pytest.approx(3.141592653589793)
+        else:
+            assert entry['lower'] == pytest.approx(jt.limit.lower)
+            assert entry['upper'] == pytest.approx(jt.limit.upper)
+
+
+def test_gen3_zero_pose_height_is_the_sum_of_the_user_guide_segments():
+    """Kinova Gen3 7-DOF at the zero pose points straight up: the bracelet flange sits at the sum of
+    the DH link lengths 0.1564 + 0.1284 + 0.2104 + 0.2104 + 0.2084 + 0.1059 + 0.1059 + 0.0615."""
+    poses = _link_poses_at_zero(ET.fromstring(_urdf(load_profile('kinova_gen3_telescopic'))))
+    flange = poses['arm_flange_link'][1] - poses['arm_base_link'][1]
+    assert flange[2] == pytest.approx(1.1873, abs=2e-3)
+    assert abs(flange[0]) < 1e-6 and abs(flange[1]) < 0.03

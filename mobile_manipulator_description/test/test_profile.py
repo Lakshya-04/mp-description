@@ -33,6 +33,11 @@ def test_dof_per_profile():
     assert load_profile('ur10e_telescopic').arm_dof == 6
     assert load_profile('generic_6dof_telescopic').arm_dof == 6
     assert load_profile('panda_telescopic').arm_dof == 7
+    for name in ('fr3', 'iiwa7', 'kinova_gen3', 'xarm7'):
+        assert load_profile(f'{name}_telescopic').arm_dof == 7
+        assert load_profile(f'{name}_telescopic').dof == 8
+    for name in ('ur3e', 'ur5e', 'ur16e', 'ur20'):
+        assert load_profile(f'{name}_telescopic').arm_dof == 6
 
 
 def test_no_lift_profile_has_only_arm_joints():

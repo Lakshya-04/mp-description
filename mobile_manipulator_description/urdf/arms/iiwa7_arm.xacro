@@ -1,0 +1,44 @@
+<?xml version="1.0"?>
+<!-- KUKA LBR iiwa 7 R800 (7-DOF), primitives only. Kinematics from the published datasheet / DH
+     table: base to A2 0.340 m, A2 to A4 0.400 m, A4 to A6 0.400 m, A6 to flange 0.126 m, all axes
+     intersect on the arm's centre line (zero pose = arm straight up; axes z, y, z, -y, z, y, z,
+     the same pattern as the iiwa14 description of iiwa_ros2). Limits: A1, A3, A5 +-170 deg,
+     A2, A4, A6 +-120 deg, A7 +-175 deg; velocity 98 / 98 / 100 / 130 / 140 / 180 / 180 deg/s;
+     torque 176 / 176 / 110 / 110 / 110 / 40 / 40 N m. The velocity and torque rows are datasheet
+     values; the iiwa_ros2 description is the 14 kg model, so they are not cross-checked against a
+     vendor description of the 7 kg arm. No vendor mesh. -->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+  <xacro:macro name="iiwa7_arm" params="parent *origin prefix:='arm_'">
+    <xacro:sa_base prefix="${prefix}" parent="${parent}"><xacro:insert_block name="origin"/></xacro:sa_base>
+
+    <xacro:sa_link name="${prefix}link1" radius="0.07" to_z="0.34"/>
+    <xacro:sa_joint prefix="${prefix}" n="1" parent="${prefix}base_link" child="${prefix}link1"
+      axis="0 0 1" lower="-2.9671" upper="2.9671" velocity="1.7104" effort="176"/>
+
+    <xacro:sa_link name="${prefix}link2" radius="0.07"/>
+    <xacro:sa_joint prefix="${prefix}" n="2" parent="${prefix}link1" child="${prefix}link2"
+      xyz="0 0 0.34" axis="0 1 0" lower="-2.0944" upper="2.0944" velocity="1.7104" effort="176"/>
+
+    <xacro:sa_link name="${prefix}link3" radius="0.065" to_z="0.4"/>
+    <xacro:sa_joint prefix="${prefix}" n="3" parent="${prefix}link2" child="${prefix}link3"
+      axis="0 0 1" lower="-2.9671" upper="2.9671" velocity="1.7453" effort="110"/>
+
+    <xacro:sa_link name="${prefix}link4" radius="0.06"/>
+    <xacro:sa_joint prefix="${prefix}" n="4" parent="${prefix}link3" child="${prefix}link4"
+      xyz="0 0 0.4" axis="0 -1 0" lower="-2.0944" upper="2.0944" velocity="2.2689" effort="110"/>
+
+    <xacro:sa_link name="${prefix}link5" radius="0.055" to_z="0.4"/>
+    <xacro:sa_joint prefix="${prefix}" n="5" parent="${prefix}link4" child="${prefix}link5"
+      axis="0 0 1" lower="-2.9671" upper="2.9671" velocity="2.4435" effort="110"/>
+
+    <xacro:sa_link name="${prefix}link6" radius="0.05"/>
+    <xacro:sa_joint prefix="${prefix}" n="6" parent="${prefix}link5" child="${prefix}link6"
+      xyz="0 0 0.4" axis="0 1 0" lower="-2.0944" upper="2.0944" velocity="3.1416" effort="40"/>
+
+    <xacro:sa_link name="${prefix}link7" radius="0.04" to_z="0.126"/>
+    <xacro:sa_joint prefix="${prefix}" n="7" parent="${prefix}link6" child="${prefix}link7"
+      axis="0 0 1" lower="-3.0543" upper="3.0543" velocity="3.1416" effort="40"/>
+
+    <xacro:sa_flange prefix="${prefix}" last="${prefix}link7" xyz="0 0 0.126"/>
+  </xacro:macro>
+</robot>
